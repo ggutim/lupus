@@ -21,6 +21,7 @@ export interface Room {
 }
 
 export interface Player {
+  id: number
   nickname: string
 }
 
@@ -84,4 +85,14 @@ export async function joinRoom(code: string, nickname: string): Promise<Player> 
   }
 
   return response.json()
+}
+
+export async function kickPlayer(code: string, playerId: number): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/players/${playerId}`, {
+    method: 'DELETE',
+  })
+
+  if (!response.ok) {
+    await handleErrorResponse(response, 'Impossibile rimuovere il giocatore. Riprova.')
+  }
 }

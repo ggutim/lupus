@@ -4,11 +4,14 @@ import { BrowserRouter } from 'react-router-dom'
 import './assets/fonts/fonts.css'
 import './index.css'
 import App from './App.tsx'
+import { DialogProvider } from './components/DialogProvider.tsx'
 
 createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <BrowserRouter>
-      <App />
+      <DialogProvider>
+        <App />
+      </DialogProvider>
     </BrowserRouter>
   </StrictMode>,
 )

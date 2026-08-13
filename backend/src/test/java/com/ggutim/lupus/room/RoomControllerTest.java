@@ -56,6 +56,21 @@ class RoomControllerTest {
     }
 
     @Test
+    void createRoom_acceptsPlayerCountAtMinimum() {
+        Room room = new Room("MIN4", GameMode.CLASSIC, 4, Map.of(
+                Role.WEREWOLF, 1, Role.PRIEST, 0, Role.VILLAGER, 3));
+        when(roomService.createRoom(any())).thenReturn(room);
+
+        mvc.post().uri("/api/rooms")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"gameMode":"CLASSIC","playerCount":4,"werewolfCount":1,"priestCount":0}
+                        """)
+                .assertThat()
+                .hasStatus(201);
+    }
+
+    @Test
     void createRoom_rejectsMissingGameMode() {
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)

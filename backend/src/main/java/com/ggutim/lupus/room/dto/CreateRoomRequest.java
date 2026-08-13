@@ -15,7 +15,7 @@ public record CreateRoomRequest(
         GameMode gameMode,
 
         @NotNull(message = "playerCount is required")
-        @Min(value = 6, message = "playerCount must be at least 6")
+        @Min(value = 4, message = "playerCount must be at least 4")
         @Max(value = 30, message = "playerCount must be at most 30")
         Integer playerCount,
 

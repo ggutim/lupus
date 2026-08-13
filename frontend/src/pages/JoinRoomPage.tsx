@@ -15,8 +15,10 @@ function JoinRoomPage() {
     setError(null)
     setSubmitting(true)
     try {
-      await joinRoom(code.trim().toUpperCase(), nickname.trim())
-      navigate(`/room/${code.trim().toUpperCase()}/waiting`, { state: { nickname: nickname.trim() } })
+      const trimmedNickname = nickname.trim()
+      const trimmedCode = code.trim().toUpperCase()
+      await joinRoom(trimmedCode, trimmedNickname)
+      navigate(`/room/${trimmedCode}/waiting`, { state: { nickname: trimmedNickname.toUpperCase() } })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossibile unirsi alla stanza. Riprova.')
     } finally {
@@ -40,7 +42,7 @@ function JoinRoomPage() {
           type="text"
           className="nickname-input"
           value={nickname}
-          onChange={(event) => setNickname(event.target.value)}
+          onChange={(event) => setNickname(event.target.value.toUpperCase())}
           placeholder="Il tuo nome"
           maxLength={20}
         />

@@ -2,9 +2,13 @@ package com.ggutim.lupus.room;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ggutim.lupus.room.exception.NicknameTakenException;
+import com.ggutim.lupus.room.exception.PlayerNotFoundException;
+import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
 import com.ggutim.lupus.room.exception.RoomFullException;
 import com.ggutim.lupus.room.exception.RoomNotFoundException;
 import com.ggutim.lupus.web.ApiExceptionHandler;
@@ -90,6 +94,33 @@ class PlayerControllerTest {
                 .content("""
                         {"nickname":"Alice"}
                         """)
+                .assertThat()
+                .hasStatus(409);
+    }
+
+    @Test
+    void kickPlayer_returnsNoContent() {
+        mvc.delete().uri("/api/rooms/ABCD/players/42")
+                .assertThat()
+                .hasStatus(204);
+
+        verify(playerService).kickPlayer(eq("ABCD"), eq(42L));
+    }
+
+    @Test
+    void kickPlayer_returnsNotFoundForUnknownPlayer() {
+        doThrow(new PlayerNotFoundException(99L)).when(playerService).kickPlayer(eq("ABCD"), eq(99L));
+
+        mvc.delete().uri("/api/rooms/ABCD/players/99")
+                .assertThat()
+                .hasStatus(404);
+    }
+
+    @Test
+    void kickPlayer_returnsConflictWhenRoomAlreadyStarted() {
+        doThrow(new RoomAlreadyStartedException("ABCD")).when(playerService).kickPlayer(eq("ABCD"), eq(42L));
+
+        mvc.delete().uri("/api/rooms/ABCD/players/42")
                 .assertThat()
                 .hasStatus(409);
     }

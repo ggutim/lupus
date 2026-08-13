@@ -3,6 +3,7 @@ package com.ggutim.lupus.room;
 import com.ggutim.lupus.room.dto.PlayerResponse;
 import com.ggutim.lupus.room.dto.RoomStateMessage;
 import com.ggutim.lupus.room.exception.NicknameTakenException;
+import com.ggutim.lupus.room.exception.PlayerNotFoundException;
 import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
 import com.ggutim.lupus.room.exception.RoomFullException;
 import com.ggutim.lupus.room.exception.RoomNotFoundException;
@@ -27,6 +28,8 @@ public class PlayerService {
 
     @Transactional
     public Player joinRoom(String code, String nickname) {
+        String normalizedNickname = nickname.toUpperCase();
+
         Room room = roomRepository.findByCode(code)
                 .orElseThrow(() -> new RoomNotFoundException(code));
 
@@ -39,11 +42,11 @@ public class PlayerService {
             throw new RoomFullException(code);
         }
 
-        if (playerRepository.existsByRoomIdAndNicknameIgnoreCase(room.getId(), nickname)) {
-            throw new NicknameTakenException(nickname);
+        if (playerRepository.existsByRoomIdAndNicknameIgnoreCase(room.getId(), normalizedNickname)) {
+            throw new NicknameTakenException(normalizedNickname);
         }
 
-        Player player = playerRepository.save(new Player(room, nickname));
+        Player player = playerRepository.save(new Player(room, normalizedNickname));
 
         long updatedPlayerCount = currentPlayerCount + 1;
         if (updatedPlayerCount >= room.getPlayerCount()) {
@@ -53,6 +56,24 @@ public class PlayerService {
 
         broadcastRoomState(room);
         return player;
+    }
+
+    @Transactional
+    public void kickPlayer(String code, Long playerId) {
+        Room room = roomRepository.findByCode(code)
+                .orElseThrow(() -> new RoomNotFoundException(code));
+
+        if (room.getStatus() == RoomStatus.STARTED) {
+            throw new RoomAlreadyStartedException(code);
+        }
+
+        Player player = playerRepository.findById(playerId)
+                .filter(p -> p.getRoom().getId().equals(room.getId()))
+                .orElseThrow(() -> new PlayerNotFoundException(playerId));
+
+        playerRepository.delete(player);
+
+        broadcastRoomState(room);
     }
 
     private void broadcastRoomState(Room room) {

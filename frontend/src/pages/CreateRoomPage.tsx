@@ -5,7 +5,7 @@ import BoardPanel from '../components/BoardPanel'
 import RoleCard from '../components/RoleCard'
 import { MeepleIcon, PriestIcon, VillagerIcon, WerewolfIcon } from '../components/icons'
 
-const MIN_PLAYERS = 6
+const MIN_PLAYERS = 4
 const MAX_PLAYERS = 30
 
 type Step = 'mode' | 'players' | 'roles'

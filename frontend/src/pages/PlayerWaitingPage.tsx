@@ -1,24 +1,39 @@
 import { useEffect } from 'react'
-import { useLocation, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { subscribeToRoom } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
+import { useDialog } from '../components/useDialog'
 
 function PlayerWaitingPage() {
   const { code } = useParams<{ code: string }>()
   const location = useLocation()
+  const navigate = useNavigate()
   const nickname = (location.state as { nickname?: string } | null)?.nickname
+  const { showAlert } = useDialog()
 
   useEffect(() => {
-    if (!code) return
+    if (!code || !nickname) return
 
     const unsubscribe = subscribeToRoom(code, (state) => {
       if (state.status === 'STARTED') {
-        alert('La partita sta per iniziare!')
+        showAlert({
+          title: 'La partita sta per iniziare',
+          message: 'Il narratore vi guiderà a breve nella prossima fase.',
+        })
+        return
+      }
+
+      const stillInRoom = state.players.some((player) => player.nickname === nickname)
+      if (!stillInRoom) {
+        showAlert({
+          title: 'Sei stato rimosso',
+          message: 'Il narratore ti ha rimosso dalla stanza.',
+        }).then(() => navigate('/'))
       }
     })
 
     return unsubscribe
-  }, [code])
+  }, [code, nickname, navigate, showAlert])
 
   return (
     <BoardPanel>
@@ -26,9 +41,9 @@ function PlayerWaitingPage() {
       {nickname && <p>Ciao {nickname}!</p>}
       <p>In attesa che il narratore avvii la partita.</p>
 
-      <div className="wax-seal-wrapper">
-        <div className="wax-seal">
-          <span className="wax-seal-code">{code}</span>
+      <div className="code-plaque-wrapper">
+        <div className="code-plaque">
+          <span className="code-plaque-code">{code}</span>
         </div>
       </div>
     </BoardPanel>

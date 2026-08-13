@@ -2,6 +2,7 @@ package com.ggutim.lupus.web;
 
 import com.ggutim.lupus.room.exception.InvalidRulesetException;
 import com.ggutim.lupus.room.exception.NicknameTakenException;
+import com.ggutim.lupus.room.exception.PlayerNotFoundException;
 import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
 import com.ggutim.lupus.room.exception.RoomFullException;
 import com.ggutim.lupus.room.exception.RoomNotFoundException;
@@ -35,6 +36,12 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(RoomNotFoundException.class)
     public ResponseEntity<Map<String, Object>> handleRoomNotFound(RoomNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body(
+                HttpStatus.NOT_FOUND, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(PlayerNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handlePlayerNotFound(PlayerNotFoundException ex) {
         return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body(
                 HttpStatus.NOT_FOUND, ex.getMessage(), null));
     }
