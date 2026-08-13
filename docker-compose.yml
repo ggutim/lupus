@@ -1,0 +1,33 @@
+services:
+  traefik:
+    image: traefik:v3.6
+    command:
+      - --providers.docker=true
+      - --providers.docker.exposedbydefault=false
+      - --entrypoints.web.address=:80
+    ports:
+      - "80:80"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+
+  backend:
+    build:
+      context: ./backend
+    environment:
+      LUPUS_CORS_ALLOWED_ORIGINS: http://${FRONTEND_HOST:-lupus.localhost}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.backend.rule=Host(`${BACKEND_HOST:-api.lupus.localhost}`)
+      - traefik.http.routers.backend.entrypoints=web
+      - traefik.http.services.backend.loadbalancer.server.port=8080
+
+  frontend:
+    build:
+      context: ./frontend
+      args:
+        VITE_API_BASE_URL: http://${BACKEND_HOST:-api.lupus.localhost}
+    labels:
+      - traefik.enable=true
+      - traefik.http.routers.frontend.rule=Host(`${FRONTEND_HOST:-lupus.localhost}`)
+      - traefik.http.routers.frontend.entrypoints=web
+      - traefik.http.services.frontend.loadbalancer.server.port=80
