@@ -4,6 +4,8 @@ export type Role = 'VILLAGER' | 'WEREWOLF' | 'PRIEST'
 
 export type RoleCounts = Record<Role, number>
 
+export type RoomStatus = 'WAITING_FOR_PLAYERS' | 'STARTED'
+
 export interface CreateRoomRequest {
   gameMode: GameMode
   playerCount: number
@@ -18,6 +20,17 @@ export interface Room {
   roleCounts: RoleCounts
 }
 
+export interface Player {
+  nickname: string
+}
+
+export interface RoomState {
+  code: string
+  status: RoomStatus
+  playerCount: number
+  players: Player[]
+}
+
 export class ApiError extends Error {
   fieldErrors?: Record<string, string>
 
@@ -28,7 +41,12 @@ export class ApiError extends Error {
   }
 }
 
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localhost:8080'
+
+async function handleErrorResponse(response: Response, fallbackMessage: string): Promise<never> {
+  const body = await response.json().catch(() => null)
+  throw new ApiError(body?.message ?? fallbackMessage, body?.fieldErrors)
+}
 
 export async function createRoom(request: CreateRoomRequest): Promise<Room> {
   const response = await fetch(`${API_BASE_URL}/api/rooms`, {
@@ -38,11 +56,31 @@ export async function createRoom(request: CreateRoomRequest): Promise<Room> {
   })
 
   if (!response.ok) {
-    const body = await response.json().catch(() => null)
-    throw new ApiError(
-      body?.message ?? 'Impossibile creare la stanza. Riprova.',
-      body?.fieldErrors,
-    )
+    await handleErrorResponse(response, 'Impossibile creare la stanza. Riprova.')
+  }
+
+  return response.json()
+}
+
+export async function getRoomState(code: string): Promise<RoomState> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}`)
+
+  if (!response.ok) {
+    await handleErrorResponse(response, 'Impossibile trovare la stanza.')
+  }
+
+  return response.json()
+}
+
+export async function joinRoom(code: string, nickname: string): Promise<Player> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/players`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ nickname }),
+  })
+
+  if (!response.ok) {
+    await handleErrorResponse(response, 'Impossibile unirsi alla stanza. Riprova.')
   }
 
   return response.json()

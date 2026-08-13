@@ -3,6 +3,7 @@ import LandingPage from './pages/LandingPage'
 import CreateRoomPage from './pages/CreateRoomPage'
 import JoinRoomPage from './pages/JoinRoomPage'
 import RoomCreatedPage from './pages/RoomCreatedPage'
+import PlayerWaitingPage from './pages/PlayerWaitingPage'
 
 function App() {
   return (
@@ -11,6 +12,7 @@ function App() {
       <Route path="/create" element={<CreateRoomPage />} />
       <Route path="/join" element={<JoinRoomPage />} />
       <Route path="/room/:code" element={<RoomCreatedPage />} />
+      <Route path="/room/:code/waiting" element={<PlayerWaitingPage />} />
     </Routes>
   )
 }

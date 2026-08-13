@@ -1,13 +1,26 @@
 import { useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import { ApiError, joinRoom } from '../api/rooms'
 
 function JoinRoomPage() {
+  const navigate = useNavigate()
   const [code, setCode] = useState('')
-  const [submittedCode, setSubmittedCode] = useState<string | null>(null)
+  const [nickname, setNickname] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  const handleSubmit = (event: FormEvent<HTMLFormElement>) => {
+  const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    setSubmittedCode(code)
+    setError(null)
+    setSubmitting(true)
+    try {
+      await joinRoom(code.trim().toUpperCase(), nickname.trim())
+      navigate(`/room/${code.trim().toUpperCase()}/waiting`, { state: { nickname: nickname.trim() } })
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : 'Impossibile unirsi alla stanza. Riprova.')
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -19,16 +32,22 @@ function JoinRoomPage() {
           value={code}
           onChange={(event) => setCode(event.target.value)}
           placeholder="Codice stanza"
-          maxLength={6}
+          maxLength={4}
           autoFocus
         />
-        <button type="submit" className="button button-primary" disabled={!code}>
-          Entra
+        <input
+          type="text"
+          className="nickname-input"
+          value={nickname}
+          onChange={(event) => setNickname(event.target.value)}
+          placeholder="Il tuo nome"
+          maxLength={20}
+        />
+        <button type="submit" className="button button-primary" disabled={!code || !nickname || submitting}>
+          {submitting ? 'Ingresso in corso…' : 'Entra'}
         </button>
       </form>
-      {submittedCode && (
-        <p>L'ingresso nella stanza "{submittedCode}" sarà disponibile a breve.</p>
-      )}
+      {error && <p className="error">{error}</p>}
       <Link to="/" className="button">
         Torna indietro
       </Link>

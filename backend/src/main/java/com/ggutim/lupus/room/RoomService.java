@@ -1,7 +1,10 @@
 package com.ggutim.lupus.room;
 
 import com.ggutim.lupus.room.dto.CreateRoomRequest;
+import com.ggutim.lupus.room.dto.PlayerResponse;
+import com.ggutim.lupus.room.dto.RoomStateMessage;
 import com.ggutim.lupus.room.exception.InvalidRulesetException;
+import com.ggutim.lupus.room.exception.RoomNotFoundException;
 import java.security.SecureRandom;
 import java.util.EnumMap;
 import java.util.Map;
@@ -16,10 +19,12 @@ public class RoomService {
     private static final int MAX_CODE_GENERATION_ATTEMPTS = 10;
 
     private final RoomRepository roomRepository;
+    private final PlayerRepository playerRepository;
     private final SecureRandom random = new SecureRandom();
 
-    public RoomService(RoomRepository roomRepository) {
+    public RoomService(RoomRepository roomRepository, PlayerRepository playerRepository) {
         this.roomRepository = roomRepository;
+        this.playerRepository = playerRepository;
     }
 
     @Transactional
@@ -28,6 +33,17 @@ public class RoomService {
         String code = generateUniqueCode();
         Room room = new Room(code, request.gameMode(), request.playerCount(), roleCounts);
         return roomRepository.save(room);
+    }
+
+    public RoomStateMessage getRoomState(String code) {
+        Room room = roomRepository.findByCode(code.toUpperCase())
+                .orElseThrow(() -> new RoomNotFoundException(code));
+
+        var players = playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId()).stream()
+                .map(PlayerResponse::from)
+                .toList();
+
+        return new RoomStateMessage(room.getCode(), room.getStatus(), room.getPlayerCount(), players);
     }
 
     private Map<Role, Integer> resolveRoleCounts(CreateRoomRequest request) {

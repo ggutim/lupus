@@ -1,6 +1,10 @@
 package com.ggutim.lupus.web;
 
 import com.ggutim.lupus.room.exception.InvalidRulesetException;
+import com.ggutim.lupus.room.exception.NicknameTakenException;
+import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
+import com.ggutim.lupus.room.exception.RoomFullException;
+import com.ggutim.lupus.room.exception.RoomNotFoundException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -27,6 +31,30 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleInvalidRuleset(InvalidRulesetException ex) {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(body(
                 HttpStatus.BAD_REQUEST, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(RoomNotFoundException.class)
+    public ResponseEntity<Map<String, Object>> handleRoomNotFound(RoomNotFoundException ex) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(body(
+                HttpStatus.NOT_FOUND, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(RoomFullException.class)
+    public ResponseEntity<Map<String, Object>> handleRoomFull(RoomFullException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body(
+                HttpStatus.CONFLICT, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(RoomAlreadyStartedException.class)
+    public ResponseEntity<Map<String, Object>> handleRoomAlreadyStarted(RoomAlreadyStartedException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body(
+                HttpStatus.CONFLICT, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(NicknameTakenException.class)
+    public ResponseEntity<Map<String, Object>> handleNicknameTaken(NicknameTakenException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body(
+                HttpStatus.CONFLICT, ex.getMessage(), null));
     }
 
     private Map<String, Object> body(HttpStatus status, String message, Map<String, String> fieldErrors) {

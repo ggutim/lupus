@@ -47,6 +47,10 @@ public class Room {
     @Column(name = "count", nullable = false)
     private Map<Role, Integer> roleCounts = new EnumMap<>(Role.class);
 
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private RoomStatus status;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -59,6 +63,7 @@ public class Room {
         this.gameMode = gameMode;
         this.playerCount = playerCount;
         this.roleCounts = new EnumMap<>(roleCounts);
+        this.status = RoomStatus.WAITING_FOR_PLAYERS;
         this.createdAt = Instant.now();
     }
 
@@ -80,6 +85,14 @@ public class Room {
 
     public Map<Role, Integer> getRoleCounts() {
         return roleCounts;
+    }
+
+    public RoomStatus getStatus() {
+        return status;
+    }
+
+    public void start() {
+        this.status = RoomStatus.STARTED;
     }
 
     public Instant getCreatedAt() {

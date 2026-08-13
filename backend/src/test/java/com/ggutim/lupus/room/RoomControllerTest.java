@@ -1,9 +1,13 @@
 package com.ggutim.lupus.room;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
+import com.ggutim.lupus.room.dto.RoomStateMessage;
+import com.ggutim.lupus.room.exception.RoomNotFoundException;
 import com.ggutim.lupus.web.ApiExceptionHandler;
+import java.util.List;
 import java.util.Map;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -60,5 +64,26 @@ class RoomControllerTest {
                         """)
                 .assertThat()
                 .hasStatus(400);
+    }
+
+    @Test
+    void getRoom_returnsRoomState() {
+        RoomStateMessage state = new RoomStateMessage("ABCD", RoomStatus.WAITING_FOR_PLAYERS, 6, List.of());
+        when(roomService.getRoomState(eq("ABCD"))).thenReturn(state);
+
+        mvc.get().uri("/api/rooms/ABCD")
+                .assertThat()
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.code").isEqualTo("ABCD");
+    }
+
+    @Test
+    void getRoom_returnsNotFoundForUnknownCode() {
+        when(roomService.getRoomState(eq("ZZZZ"))).thenThrow(new RoomNotFoundException("ZZZZ"));
+
+        mvc.get().uri("/api/rooms/ZZZZ")
+                .assertThat()
+                .hasStatus(404);
     }
 }

@@ -6,7 +6,12 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.when;
 
 import com.ggutim.lupus.room.dto.CreateRoomRequest;
+import com.ggutim.lupus.room.dto.RoomStateMessage;
 import com.ggutim.lupus.room.exception.InvalidRulesetException;
+import com.ggutim.lupus.room.exception.RoomNotFoundException;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.Mock;
@@ -18,9 +23,16 @@ class RoomServiceTest {
     @Mock
     private RoomRepository roomRepository;
 
+    @Mock
+    private PlayerRepository playerRepository;
+
+    private RoomService roomService() {
+        return new RoomService(roomRepository, playerRepository);
+    }
+
     @Test
     void createRoom_computesVillagerCountAsRemainder() {
-        RoomService roomService = new RoomService(roomRepository);
+        RoomService roomService = roomService();
         when(roomRepository.existsByCode(any())).thenReturn(false);
         when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -36,7 +48,7 @@ class RoomServiceTest {
 
     @Test
     void createRoom_rejectsRoleCountsExceedingPlayerCount() {
-        RoomService roomService = new RoomService(roomRepository);
+        RoomService roomService = roomService();
 
         CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 6, 4, 3);
 
@@ -46,7 +58,7 @@ class RoomServiceTest {
 
     @Test
     void createRoom_allowsRoleCountsExactlyMatchingPlayerCount() {
-        RoomService roomService = new RoomService(roomRepository);
+        RoomService roomService = roomService();
         when(roomRepository.existsByCode(any())).thenReturn(false);
         when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -59,7 +71,7 @@ class RoomServiceTest {
 
     @Test
     void createRoom_generatesFourCharacterUppercaseCode() {
-        RoomService roomService = new RoomService(roomRepository);
+        RoomService roomService = roomService();
         when(roomRepository.existsByCode(any())).thenReturn(false);
         when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -72,7 +84,7 @@ class RoomServiceTest {
 
     @Test
     void createRoom_retriesCodeGenerationOnCollision() {
-        RoomService roomService = new RoomService(roomRepository);
+        RoomService roomService = roomService();
         when(roomRepository.existsByCode(any())).thenReturn(true, false);
         when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
@@ -81,5 +93,28 @@ class RoomServiceTest {
         Room room = roomService.createRoom(request);
 
         assertThat(room.getCode()).matches("[A-Z0-9]{4}");
+    }
+
+    @Test
+    void getRoomState_returnsStateForExistingRoom() {
+        Room room = new Room("ABCD", GameMode.CLASSIC, 6, Map.of(
+                Role.WEREWOLF, 1, Role.PRIEST, 0, Role.VILLAGER, 5));
+        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(List.of());
+
+        RoomStateMessage state = roomService().getRoomState("abcd");
+
+        assertThat(state.code()).isEqualTo("ABCD");
+        assertThat(state.status()).isEqualTo(RoomStatus.WAITING_FOR_PLAYERS);
+        assertThat(state.playerCount()).isEqualTo(6);
+        assertThat(state.players()).isEmpty();
+    }
+
+    @Test
+    void getRoomState_rejectsUnknownCode() {
+        when(roomRepository.findByCode("ZZZZ")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> roomService().getRoomState("zzzz"))
+                .isInstanceOf(RoomNotFoundException.class);
     }
 }

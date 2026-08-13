@@ -1,0 +1,32 @@
+import { useEffect } from 'react'
+import { useLocation, useParams } from 'react-router-dom'
+import { subscribeToRoom } from '../api/roomSocket'
+
+function PlayerWaitingPage() {
+  const { code } = useParams<{ code: string }>()
+  const location = useLocation()
+  const nickname = (location.state as { nickname?: string } | null)?.nickname
+
+  useEffect(() => {
+    if (!code) return
+
+    const unsubscribe = subscribeToRoom(code, (state) => {
+      if (state.status === 'STARTED') {
+        alert('La partita sta per iniziare!')
+      }
+    })
+
+    return unsubscribe
+  }, [code])
+
+  return (
+    <div className="page">
+      <h1>In attesa...</h1>
+      {nickname && <p>Ciao {nickname}!</p>}
+      <p>In attesa che il narratore avvii la partita.</p>
+      <p className="room-code">{code}</p>
+    </div>
+  )
+}
+
+export default PlayerWaitingPage

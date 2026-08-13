@@ -68,6 +68,11 @@ body {
   letter-spacing: 2px;
 }
 
+.join-form input.nickname-input {
+  text-transform: none;
+  letter-spacing: normal;
+}
+
 .wizard-step {
   display: flex;
   flex-direction: column;
@@ -130,4 +135,24 @@ body {
   font-size: 48px;
   font-weight: bold;
   letter-spacing: 8px;
+}
+
+.player-list {
+  width: 100%;
+  max-width: 320px;
+}
+
+.player-list ul {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.player-list li {
+  padding: 10px 16px;
+  border-radius: 8px;
+  border: 2px solid #6b6375;
 }
