@@ -24,7 +24,12 @@ function PlayerWaitingPage() {
       <h1>In attesa...</h1>
       {nickname && <p>Ciao {nickname}!</p>}
       <p>In attesa che il narratore avvii la partita.</p>
-      <p className="room-code">{code}</p>
+
+      <div className="wax-seal-wrapper">
+        <div className="wax-seal">
+          <span className="wax-seal-code">{code}</span>
+        </div>
+      </div>
     </div>
   )
 }

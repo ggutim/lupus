@@ -4,6 +4,7 @@ function LandingPage() {
   return (
     <div className="landing">
       <h1>Lupus in Tabula</h1>
+      <p className="landing-subtitle">Il villaggio dorme... ma il male è già tra voi.</p>
       <div className="landing-actions">
         <Link to="/create" className="button button-primary">
           Crea partita

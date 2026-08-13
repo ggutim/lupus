@@ -38,15 +38,20 @@ function RoomCreatedPage() {
   return (
     <div className="page">
       <h1>Partita creata</h1>
-      <p>Condividi questo codice con i giocatori:</p>
-      <p className="room-code">{code}</p>
+
+      <div className="wax-seal-wrapper">
+        <div className="wax-seal">
+          <span className="wax-seal-code">{code}</span>
+        </div>
+        <p className="wax-seal-hint">Condividi questo codice con i giocatori</p>
+      </div>
 
       <section className="player-list">
         <h2>
           Giocatori ({joinedCount}/{totalCount})
         </h2>
         {joinedCount === 0 ? (
-          <p>Nessun giocatore è ancora entrato.</p>
+          <p className="player-list-empty">Nessun giocatore è ancora entrato.</p>
         ) : (
           <ul>
             {roomState?.players.map((player) => (

@@ -7,6 +7,33 @@ const MAX_PLAYERS = 30
 
 type Step = 'mode' | 'players' | 'roles'
 
+const STEPS: { key: Step; label: string }[] = [
+  { key: 'mode', label: 'Modalità' },
+  { key: 'players', label: 'Giocatori' },
+  { key: 'roles', label: 'Ruoli' },
+]
+
+function QuestSteps({ current }: { current: Step }) {
+  const currentIndex = STEPS.findIndex((step) => step.key === current)
+
+  return (
+    <div className="quest-steps">
+      {STEPS.map((step, index) => (
+        <div
+          key={step.key}
+          className={
+            'quest-step' +
+            (index === currentIndex ? ' is-active' : index < currentIndex ? ' is-done' : '')
+          }
+        >
+          <div className="quest-step-medallion">{index + 1}</div>
+          <span className="quest-step-label">{step.label}</span>
+        </div>
+      ))}
+    </div>
+  )
+}
+
 function CreateRoomPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('mode')
@@ -44,9 +71,11 @@ function CreateRoomPage() {
     <div className="page">
       <h1>Crea partita</h1>
 
+      <QuestSteps current={step} />
+
       {step === 'mode' && (
         <section className="wizard-step">
-          <h2>1. Modalità di gioco</h2>
+          <h2>Scegli la modalità di gioco</h2>
           <div className="option-list">
             <label className="option">
               <input
@@ -71,7 +100,7 @@ function CreateRoomPage() {
 
       {step === 'players' && (
         <section className="wizard-step">
-          <h2>2. Numero di giocatori</h2>
+          <h2>Numero di giocatori</h2>
           <input
             type="number"
             min={MIN_PLAYERS}
@@ -98,7 +127,7 @@ function CreateRoomPage() {
 
       {step === 'roles' && (
         <section className="wizard-step">
-          <h2>3. Ruoli</h2>
+          <h2>Assegna i ruoli</h2>
           <label className="field">
             Lupi mannari
             <input
