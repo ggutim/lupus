@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { useLocation, useParams } from 'react-router-dom'
 import { subscribeToRoom } from '../api/roomSocket'
+import BoardPanel from '../components/BoardPanel'
 
 function PlayerWaitingPage() {
   const { code } = useParams<{ code: string }>()
@@ -20,7 +21,7 @@ function PlayerWaitingPage() {
   }, [code])
 
   return (
-    <div className="page">
+    <BoardPanel>
       <h1>In attesa...</h1>
       {nickname && <p>Ciao {nickname}!</p>}
       <p>In attesa che il narratore avvii la partita.</p>
@@ -30,7 +31,7 @@ function PlayerWaitingPage() {
           <span className="wax-seal-code">{code}</span>
         </div>
       </div>
-    </div>
+    </BoardPanel>
   )
 }
 

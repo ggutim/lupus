@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError, joinRoom } from '../api/rooms'
+import BoardPanel from '../components/BoardPanel'
 
 function JoinRoomPage() {
   const navigate = useNavigate()
@@ -24,7 +25,7 @@ function JoinRoomPage() {
   }
 
   return (
-    <div className="page">
+    <BoardPanel>
       <h1>Unisciti a una partita</h1>
       <form onSubmit={handleSubmit} className="join-form">
         <input
@@ -51,7 +52,7 @@ function JoinRoomPage() {
       <Link to="/" className="button">
         Torna indietro
       </Link>
-    </div>
+    </BoardPanel>
   )
 }
 

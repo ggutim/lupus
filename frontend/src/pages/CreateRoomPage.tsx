@@ -1,6 +1,9 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError, createRoom, type GameMode } from '../api/rooms'
+import BoardPanel from '../components/BoardPanel'
+import RoleCard from '../components/RoleCard'
+import { MeepleIcon, PriestIcon, VillagerIcon, WerewolfIcon } from '../components/icons'
 
 const MIN_PLAYERS = 6
 const MAX_PLAYERS = 30
@@ -68,7 +71,7 @@ function CreateRoomPage() {
   }
 
   return (
-    <div className="page">
+    <BoardPanel>
       <h1>Crea partita</h1>
 
       <QuestSteps current={step} />
@@ -101,13 +104,16 @@ function CreateRoomPage() {
       {step === 'players' && (
         <section className="wizard-step">
           <h2>Numero di giocatori</h2>
-          <input
-            type="number"
-            min={MIN_PLAYERS}
-            max={MAX_PLAYERS}
-            value={playerCount}
-            onChange={(event) => setPlayerCount(Number(event.target.value))}
-          />
+          <div className="role-cards">
+            <RoleCard
+              icon={<MeepleIcon />}
+              label="Giocatori"
+              count={playerCount}
+              min={MIN_PLAYERS}
+              max={MAX_PLAYERS}
+              onChange={setPlayerCount}
+            />
+          </div>
           <p>Da {MIN_PLAYERS} a {MAX_PLAYERS} giocatori.</p>
           <div className="wizard-actions">
             <button type="button" className="button" onClick={() => setStep('mode')}>
@@ -128,25 +134,23 @@ function CreateRoomPage() {
       {step === 'roles' && (
         <section className="wizard-step">
           <h2>Assegna i ruoli</h2>
-          <label className="field">
-            Lupi mannari
-            <input
-              type="number"
+          <div className="role-cards">
+            <RoleCard
+              icon={<WerewolfIcon />}
+              label="Lupi mannari"
+              count={werewolfCount}
               min={1}
-              value={werewolfCount}
-              onChange={(event) => setWerewolfCount(Number(event.target.value))}
+              onChange={setWerewolfCount}
             />
-          </label>
-          <label className="field">
-            Sacerdoti
-            <input
-              type="number"
+            <RoleCard
+              icon={<PriestIcon />}
+              label="Sacerdoti"
+              count={priestCount}
               min={0}
-              value={priestCount}
-              onChange={(event) => setPriestCount(Number(event.target.value))}
+              onChange={setPriestCount}
             />
-          </label>
-          <p>Contadini: {villagerCount}</p>
+            <RoleCard icon={<VillagerIcon />} label="Contadini" count={villagerCount} readOnly />
+          </div>
           {rolesExceedPlayers && (
             <p className="error">Il numero di ruoli speciali supera il numero di giocatori.</p>
           )}
@@ -166,7 +170,7 @@ function CreateRoomPage() {
           </div>
         </section>
       )}
-    </div>
+    </BoardPanel>
   )
 }
 

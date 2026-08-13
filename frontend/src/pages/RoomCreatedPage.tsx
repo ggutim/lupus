@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { getRoomState, type RoomState } from '../api/rooms'
 import { subscribeToRoom } from '../api/roomSocket'
+import BoardPanel from '../components/BoardPanel'
+import { MeepleIcon } from '../components/icons'
 
 function RoomCreatedPage() {
   const { code } = useParams<{ code: string }>()
@@ -36,7 +38,7 @@ function RoomCreatedPage() {
   const totalCount = roomState?.playerCount ?? 0
 
   return (
-    <div className="page">
+    <BoardPanel>
       <h1>Partita creata</h1>
 
       <div className="wax-seal-wrapper">
@@ -53,18 +55,23 @@ function RoomCreatedPage() {
         {joinedCount === 0 ? (
           <p className="player-list-empty">Nessun giocatore è ancora entrato.</p>
         ) : (
-          <ul>
+          <div className="player-tokens">
             {roomState?.players.map((player) => (
-              <li key={player.nickname}>{player.nickname}</li>
+              <div className="player-token" key={player.nickname}>
+                <div className="player-token-meeple">
+                  <MeepleIcon />
+                </div>
+                <span className="player-token-name">{player.nickname}</span>
+              </div>
             ))}
-          </ul>
+          </div>
         )}
       </section>
 
       <Link to="/" className="button">
         Torna alla home
       </Link>
-    </div>
+    </BoardPanel>
   )
 }
 
