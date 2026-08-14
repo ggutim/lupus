@@ -17,12 +17,14 @@ public class PlayerService {
 
     private final RoomRepository roomRepository;
     private final PlayerRepository playerRepository;
+    private final RoomService roomService;
     private final SimpMessagingTemplate messagingTemplate;
 
-    public PlayerService(RoomRepository roomRepository, PlayerRepository playerRepository,
+    public PlayerService(RoomRepository roomRepository, PlayerRepository playerRepository, RoomService roomService,
                           SimpMessagingTemplate messagingTemplate) {
         this.roomRepository = roomRepository;
         this.playerRepository = playerRepository;
+        this.roomService = roomService;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -59,9 +61,8 @@ public class PlayerService {
     }
 
     @Transactional
-    public void kickPlayer(String code, Long playerId) {
-        Room room = roomRepository.findByCode(code)
-                .orElseThrow(() -> new RoomNotFoundException(code));
+    public void kickPlayer(String code, Long playerId, String masterToken) {
+        Room room = roomService.findRoomForMaster(code, masterToken);
 
         if (room.getStatus() == RoomStatus.STARTED) {
             throw new RoomAlreadyStartedException(code);

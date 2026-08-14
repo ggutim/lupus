@@ -8,6 +8,7 @@ import static org.mockito.Mockito.when;
 import com.ggutim.lupus.room.dto.CreateRoomRequest;
 import com.ggutim.lupus.room.dto.RoomStateMessage;
 import com.ggutim.lupus.room.exception.InvalidRulesetException;
+import com.ggutim.lupus.room.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.room.exception.RoomNotFoundException;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +29,11 @@ class RoomServiceTest {
 
     private RoomService roomService() {
         return new RoomService(roomRepository, playerRepository);
+    }
+
+    private Room room(String code, String masterToken, int playerCount) {
+        return new Room(code, masterToken, GameMode.CLASSIC, playerCount, Map.of(
+                Role.WEREWOLF, 1, Role.PRIEST, 0, Role.VILLAGER, playerCount - 1));
     }
 
     @Test
@@ -96,13 +102,12 @@ class RoomServiceTest {
     }
 
     @Test
-    void getRoomState_returnsStateForExistingRoom() {
-        Room room = new Room("ABCD", GameMode.CLASSIC, 6, Map.of(
-                Role.WEREWOLF, 1, Role.PRIEST, 0, Role.VILLAGER, 5));
+    void getRoomState_returnsStateForExistingRoomWithValidToken() {
+        Room room = room("ABCD", "secret-token", 6);
         when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
         when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(List.of());
 
-        RoomStateMessage state = roomService().getRoomState("abcd");
+        RoomStateMessage state = roomService().getRoomState("abcd", "secret-token");
 
         assertThat(state.code()).isEqualTo("ABCD");
         assertThat(state.status()).isEqualTo(RoomStatus.WAITING_FOR_PLAYERS);
@@ -114,7 +119,39 @@ class RoomServiceTest {
     void getRoomState_rejectsUnknownCode() {
         when(roomRepository.findByCode("ZZZZ")).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> roomService().getRoomState("zzzz"))
+        assertThatThrownBy(() -> roomService().getRoomState("zzzz", "any-token"))
                 .isInstanceOf(RoomNotFoundException.class);
+    }
+
+    @Test
+    void getRoomState_rejectsWrongMasterToken() {
+        Room room = room("ABCD", "secret-token", 6);
+        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+
+        assertThatThrownBy(() -> roomService().getRoomState("ABCD", "wrong-token"))
+                .isInstanceOf(MasterTokenMismatchException.class);
+    }
+
+    @Test
+    void getRoomState_rejectsMissingMasterToken() {
+        Room room = room("ABCD", "secret-token", 6);
+        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+
+        assertThatThrownBy(() -> roomService().getRoomState("ABCD", null))
+                .isInstanceOf(MasterTokenMismatchException.class);
+    }
+
+    @Test
+    void createRoom_generatesUniqueMasterTokenPerRoom() {
+        when(roomRepository.existsByCode(any())).thenReturn(false);
+        when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 8, 2, 1);
+
+        Room roomA = roomService().createRoom(request);
+        Room roomB = roomService().createRoom(request);
+
+        assertThat(roomA.hasMasterToken(roomA.getMasterToken())).isTrue();
+        assertThat(roomA.getMasterToken()).isNotEqualTo(roomB.getMasterToken());
     }
 }

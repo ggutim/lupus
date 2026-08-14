@@ -15,6 +15,7 @@ export interface CreateRoomRequest {
 
 export interface Room {
   code: string
+  masterToken: string
   gameMode: GameMode
   playerCount: number
   roleCounts: RoleCounts
@@ -33,11 +34,13 @@ export interface RoomState {
 }
 
 export class ApiError extends Error {
+  status: number
   fieldErrors?: Record<string, string>
 
-  constructor(message: string, fieldErrors?: Record<string, string>) {
+  constructor(status: number, message: string, fieldErrors?: Record<string, string>) {
     super(message)
     this.name = 'ApiError'
+    this.status = status
     this.fieldErrors = fieldErrors
   }
 }
@@ -46,7 +49,7 @@ export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL ?? 'http://localho
 
 async function handleErrorResponse(response: Response, fallbackMessage: string): Promise<never> {
   const body = await response.json().catch(() => null)
-  throw new ApiError(body?.message ?? fallbackMessage, body?.fieldErrors)
+  throw new ApiError(response.status, body?.message ?? fallbackMessage, body?.fieldErrors)
 }
 
 export async function createRoom(request: CreateRoomRequest): Promise<Room> {
@@ -63,8 +66,10 @@ export async function createRoom(request: CreateRoomRequest): Promise<Room> {
   return response.json()
 }
 
-export async function getRoomState(code: string): Promise<RoomState> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}`)
+export async function getRoomState(code: string, masterToken: string): Promise<RoomState> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}`, {
+    headers: { 'X-Master-Token': masterToken },
+  })
 
   if (!response.ok) {
     await handleErrorResponse(response, 'Impossibile trovare la stanza.')
@@ -87,9 +92,10 @@ export async function joinRoom(code: string, nickname: string): Promise<Player> 
   return response.json()
 }
 
-export async function kickPlayer(code: string, playerId: number): Promise<void> {
+export async function kickPlayer(code: string, playerId: number, masterToken: string): Promise<void> {
   const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/players/${playerId}`, {
     method: 'DELETE',
+    headers: { 'X-Master-Token': masterToken },
   })
 
   if (!response.ok) {

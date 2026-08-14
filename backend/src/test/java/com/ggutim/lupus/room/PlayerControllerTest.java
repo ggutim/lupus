@@ -6,6 +6,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ggutim.lupus.room.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.room.exception.NicknameTakenException;
 import com.ggutim.lupus.room.exception.PlayerNotFoundException;
 import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
@@ -33,7 +34,7 @@ class PlayerControllerTest {
 
     @Test
     void joinRoom_returnsCreatedPlayer() {
-        Room room = new Room("ABCD", GameMode.CLASSIC, 6, Map.of(
+        Room room = new Room("ABCD", "secret-token", GameMode.CLASSIC, 6, Map.of(
                 Role.WEREWOLF, 1, Role.PRIEST, 0, Role.VILLAGER, 5));
         when(playerService.joinRoom(eq("ABCD"), eq("Alice"))).thenReturn(new Player(room, "Alice"));
 
@@ -101,27 +102,53 @@ class PlayerControllerTest {
     @Test
     void kickPlayer_returnsNoContent() {
         mvc.delete().uri("/api/rooms/ABCD/players/42")
+                .header("X-Master-Token", "secret-token")
                 .assertThat()
                 .hasStatus(204);
 
-        verify(playerService).kickPlayer(eq("ABCD"), eq(42L));
+        verify(playerService).kickPlayer(eq("ABCD"), eq(42L), eq("secret-token"));
     }
 
     @Test
     void kickPlayer_returnsNotFoundForUnknownPlayer() {
-        doThrow(new PlayerNotFoundException(99L)).when(playerService).kickPlayer(eq("ABCD"), eq(99L));
+        doThrow(new PlayerNotFoundException(99L)).when(playerService)
+                .kickPlayer(eq("ABCD"), eq(99L), any());
 
         mvc.delete().uri("/api/rooms/ABCD/players/99")
+                .header("X-Master-Token", "secret-token")
                 .assertThat()
                 .hasStatus(404);
     }
 
     @Test
     void kickPlayer_returnsConflictWhenRoomAlreadyStarted() {
-        doThrow(new RoomAlreadyStartedException("ABCD")).when(playerService).kickPlayer(eq("ABCD"), eq(42L));
+        doThrow(new RoomAlreadyStartedException("ABCD")).when(playerService)
+                .kickPlayer(eq("ABCD"), eq(42L), any());
+
+        mvc.delete().uri("/api/rooms/ABCD/players/42")
+                .header("X-Master-Token", "secret-token")
+                .assertThat()
+                .hasStatus(409);
+    }
+
+    @Test
+    void kickPlayer_returnsForbiddenForWrongMasterToken() {
+        doThrow(new MasterTokenMismatchException("ABCD")).when(playerService)
+                .kickPlayer(eq("ABCD"), eq(42L), eq("wrong-token"));
+
+        mvc.delete().uri("/api/rooms/ABCD/players/42")
+                .header("X-Master-Token", "wrong-token")
+                .assertThat()
+                .hasStatus(403);
+    }
+
+    @Test
+    void kickPlayer_returnsForbiddenWhenMasterTokenMissing() {
+        doThrow(new MasterTokenMismatchException("ABCD")).when(playerService)
+                .kickPlayer(eq("ABCD"), eq(42L), any());
 
         mvc.delete().uri("/api/rooms/ABCD/players/42")
                 .assertThat()
-                .hasStatus(409);
+                .hasStatus(403);
     }
 }

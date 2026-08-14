@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError, createRoom, type GameMode } from '../api/rooms'
+import { storeMasterToken } from '../api/masterToken'
 import BoardPanel from '../components/BoardPanel'
 import RoleCard from '../components/RoleCard'
 import { MeepleIcon, PriestIcon, VillagerIcon, WerewolfIcon } from '../components/icons'
@@ -62,6 +63,7 @@ function CreateRoomPage() {
         werewolfCount,
         priestCount,
       })
+      storeMasterToken(room.code, room.masterToken)
       navigate(`/room/${room.code}`)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossibile creare la stanza. Riprova.')

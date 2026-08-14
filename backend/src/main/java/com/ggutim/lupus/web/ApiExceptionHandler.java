@@ -1,6 +1,7 @@
 package com.ggutim.lupus.web;
 
 import com.ggutim.lupus.room.exception.InvalidRulesetException;
+import com.ggutim.lupus.room.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.room.exception.NicknameTakenException;
 import com.ggutim.lupus.room.exception.PlayerNotFoundException;
 import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
@@ -62,6 +63,12 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleNicknameTaken(NicknameTakenException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body(
                 HttpStatus.CONFLICT, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(MasterTokenMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handleMasterTokenMismatch(MasterTokenMismatchException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body(
+                HttpStatus.FORBIDDEN, ex.getMessage(), null));
     }
 
     private Map<String, Object> body(HttpStatus status, String message, Map<String, String> fieldErrors) {

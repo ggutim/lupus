@@ -8,6 +8,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ggutim.lupus.room.dto.RoomStateMessage;
+import com.ggutim.lupus.room.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.room.exception.NicknameTakenException;
 import com.ggutim.lupus.room.exception.PlayerNotFoundException;
 import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
@@ -26,6 +27,8 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 @ExtendWith(MockitoExtension.class)
 class PlayerServiceTest {
 
+    private static final String MASTER_TOKEN = "secret-token";
+
     @Mock
     private RoomRepository roomRepository;
 
@@ -33,14 +36,17 @@ class PlayerServiceTest {
     private PlayerRepository playerRepository;
 
     @Mock
+    private RoomService roomService;
+
+    @Mock
     private SimpMessagingTemplate messagingTemplate;
 
     private PlayerService playerService() {
-        return new PlayerService(roomRepository, playerRepository, messagingTemplate);
+        return new PlayerService(roomRepository, playerRepository, roomService, messagingTemplate);
     }
 
     private Room room(int playerCount) {
-        return new Room("ABCD", GameMode.CLASSIC, playerCount, Map.of(
+        return new Room("ABCD", MASTER_TOKEN, GameMode.CLASSIC, playerCount, Map.of(
                 Role.WEREWOLF, 1, Role.PRIEST, 0, Role.VILLAGER, playerCount - 1));
     }
 
@@ -139,11 +145,11 @@ class PlayerServiceTest {
         Player player = new Player(room, "ALICE");
         setId(player, 42L);
 
-        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
         when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
         when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(List.of());
 
-        playerService().kickPlayer("ABCD", 42L);
+        playerService().kickPlayer("ABCD", 42L, MASTER_TOKEN);
 
         verify(playerRepository).delete(player);
         verify(messagingTemplate).convertAndSend(eq("/topic/rooms/ABCD"), any(RoomStateMessage.class));
@@ -153,10 +159,10 @@ class PlayerServiceTest {
     void kickPlayer_rejectsUnknownPlayer() {
         Room room = room(6);
         setId(room, 1L);
-        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
         when(playerRepository.findById(99L)).thenReturn(Optional.empty());
 
-        assertThatThrownBy(() -> playerService().kickPlayer("ABCD", 99L))
+        assertThatThrownBy(() -> playerService().kickPlayer("ABCD", 99L, MASTER_TOKEN))
                 .isInstanceOf(PlayerNotFoundException.class);
     }
 
@@ -169,10 +175,10 @@ class PlayerServiceTest {
         Player player = new Player(otherRoom, "ALICE");
         setId(player, 42L);
 
-        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
         when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
 
-        assertThatThrownBy(() -> playerService().kickPlayer("ABCD", 42L))
+        assertThatThrownBy(() -> playerService().kickPlayer("ABCD", 42L, MASTER_TOKEN))
                 .isInstanceOf(PlayerNotFoundException.class);
     }
 
@@ -180,10 +186,19 @@ class PlayerServiceTest {
     void kickPlayer_rejectsWhenRoomAlreadyStarted() {
         Room room = room(6);
         room.start();
-        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
 
-        assertThatThrownBy(() -> playerService().kickPlayer("ABCD", 1L))
+        assertThatThrownBy(() -> playerService().kickPlayer("ABCD", 1L, MASTER_TOKEN))
                 .isInstanceOf(RoomAlreadyStartedException.class);
+    }
+
+    @Test
+    void kickPlayer_rejectsWrongMasterToken() {
+        when(roomService.findRoomForMaster("ABCD", "wrong-token"))
+                .thenThrow(new MasterTokenMismatchException("ABCD"));
+
+        assertThatThrownBy(() -> playerService().kickPlayer("ABCD", 1L, "wrong-token"))
+                .isInstanceOf(MasterTokenMismatchException.class);
     }
 
     private void setId(Object entity, Long id) {

@@ -33,6 +33,9 @@ public class Room {
     @Column(nullable = false, unique = true, length = 4)
     private String code;
 
+    @Column(nullable = false, unique = true, length = 43)
+    private String masterToken;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private GameMode gameMode;
@@ -58,8 +61,9 @@ public class Room {
         // required by JPA
     }
 
-    public Room(String code, GameMode gameMode, int playerCount, Map<Role, Integer> roleCounts) {
+    public Room(String code, String masterToken, GameMode gameMode, int playerCount, Map<Role, Integer> roleCounts) {
         this.code = code;
+        this.masterToken = masterToken;
         this.gameMode = gameMode;
         this.playerCount = playerCount;
         this.roleCounts = new EnumMap<>(roleCounts);
@@ -73,6 +77,20 @@ public class Room {
 
     public String getCode() {
         return code;
+    }
+
+    public boolean hasMasterToken(String candidate) {
+        return masterToken.equals(candidate);
+    }
+
+    /**
+     * Package-private on purpose: the master token must only ever be
+     * exposed to the client once, right after room creation. Anything
+     * that needs to check a caller-provided token should use
+     * {@link #hasMasterToken(String)} instead.
+     */
+    String getMasterToken() {
+        return masterToken;
     }
 
     public GameMode getGameMode() {
