@@ -2,10 +2,15 @@ package com.ggutim.lupus.room;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ggutim.lupus.room.dto.RoomStateMessage;
+import com.ggutim.lupus.room.exception.InvalidRulesetException;
 import com.ggutim.lupus.room.exception.MasterTokenMismatchException;
+import com.ggutim.lupus.room.exception.NotEnoughPlayersException;
+import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
 import com.ggutim.lupus.room.exception.RoomNotFoundException;
 import com.ggutim.lupus.web.ApiExceptionHandler;
 import java.util.List;
@@ -28,6 +33,9 @@ class RoomControllerTest {
     @MockitoBean
     private RoomService roomService;
 
+    @MockitoBean
+    private PlayerService playerService;
+
     @Test
     void createRoom_returnsCreatedRoomWithMasterToken() {
         Room room = new Room("X7K2", "secret-token", GameMode.CLASSIC, 10, Map.of(
@@ -47,7 +55,10 @@ class RoomControllerTest {
     }
 
     @Test
-    void createRoom_rejectsPlayerCountBelowMinimum() {
+    void createRoom_rejectsPlayerCountOutOfConfiguredRange() {
+        when(roomService.createRoom(any())).thenThrow(
+                new InvalidRulesetException("playerCount must be between 4 and 30"));
+
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
@@ -125,5 +136,47 @@ class RoomControllerTest {
         mvc.get().uri("/api/rooms/ABCD")
                 .assertThat()
                 .hasStatus(403);
+    }
+
+    @Test
+    void startGame_returnsNoContent() {
+        mvc.post().uri("/api/rooms/ABCD/start")
+                .header("X-Master-Token", "secret-token")
+                .assertThat()
+                .hasStatus(204);
+
+        verify(playerService).startGame(eq("ABCD"), eq("secret-token"));
+    }
+
+    @Test
+    void startGame_returnsForbiddenWhenMasterTokenInvalid() {
+        doThrow(new MasterTokenMismatchException("ABCD")).when(playerService)
+                .startGame(eq("ABCD"), any());
+
+        mvc.post().uri("/api/rooms/ABCD/start")
+                .assertThat()
+                .hasStatus(403);
+    }
+
+    @Test
+    void startGame_returnsConflictWhenNotEnoughPlayers() {
+        doThrow(new NotEnoughPlayersException("ABCD", 4)).when(playerService)
+                .startGame(eq("ABCD"), eq("secret-token"));
+
+        mvc.post().uri("/api/rooms/ABCD/start")
+                .header("X-Master-Token", "secret-token")
+                .assertThat()
+                .hasStatus(409);
+    }
+
+    @Test
+    void startGame_returnsConflictWhenAlreadyStarted() {
+        doThrow(new RoomAlreadyStartedException("ABCD")).when(playerService)
+                .startGame(eq("ABCD"), eq("secret-token"));
+
+        mvc.post().uri("/api/rooms/ABCD/start")
+                .header("X-Master-Token", "secret-token")
+                .assertThat()
+                .hasStatus(409);
     }
 }

@@ -19,9 +19,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class RoomController {
 
     private final RoomService roomService;
+    private final PlayerService playerService;
 
-    public RoomController(RoomService roomService) {
+    public RoomController(RoomService roomService, PlayerService playerService) {
         this.roomService = roomService;
+        this.playerService = playerService;
     }
 
     @PostMapping
@@ -34,5 +36,12 @@ public class RoomController {
     public ResponseEntity<RoomStateMessage> getRoom(@PathVariable String code,
                                                      @RequestHeader(value = "X-Master-Token", required = false) String masterToken) {
         return ResponseEntity.ok(roomService.getRoomState(code, masterToken));
+    }
+
+    @PostMapping("/{code}/start")
+    public ResponseEntity<Void> startGame(@PathVariable String code,
+                                           @RequestHeader(value = "X-Master-Token", required = false) String masterToken) {
+        playerService.startGame(code.toUpperCase(), masterToken);
+        return ResponseEntity.noContent().build();
     }
 }

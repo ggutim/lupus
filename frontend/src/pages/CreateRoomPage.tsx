@@ -2,12 +2,10 @@ import { useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError, createRoom, type GameMode } from '../api/rooms'
 import { storeMasterToken } from '../api/masterToken'
+import { MAX_PLAYERS, MIN_PLAYERS } from '../api/gameRules'
 import BoardPanel from '../components/BoardPanel'
 import RoleCard from '../components/RoleCard'
 import { MeepleIcon, PriestIcon, VillagerIcon, WerewolfIcon } from '../components/icons'
-
-const MIN_PLAYERS = 4
-const MAX_PLAYERS = 30
 
 type Step = 'mode' | 'players' | 'roles'
 

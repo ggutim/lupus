@@ -102,3 +102,14 @@ export async function kickPlayer(code: string, playerId: number, masterToken: st
     await handleErrorResponse(response, 'Impossibile rimuovere il giocatore. Riprova.')
   }
 }
+
+export async function startGame(code: string, masterToken: string): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/start`, {
+    method: 'POST',
+    headers: { 'X-Master-Token': masterToken },
+  })
+
+  if (!response.ok) {
+    await handleErrorResponse(response, 'Impossibile avviare la partita. Riprova.')
+  }
+}

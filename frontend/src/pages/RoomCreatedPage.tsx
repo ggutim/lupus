@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ApiError, getRoomState, kickPlayer, type RoomState } from '../api/rooms'
+import { ApiError, getRoomState, kickPlayer, startGame, type RoomState } from '../api/rooms'
 import { getMasterToken } from '../api/masterToken'
+import { MIN_PLAYERS } from '../api/gameRules'
 import { subscribeToRoom } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
 import { useDialog } from '../components/useDialog'
@@ -11,6 +12,7 @@ function RoomCreatedPage() {
   const { code } = useParams<{ code: string }>()
   const navigate = useNavigate()
   const [roomState, setRoomState] = useState<RoomState | null>(null)
+  const [starting, setStarting] = useState(false)
   const hasAnnouncedStart = useRef(false)
   const { showAlert, showConfirm } = useDialog()
   const masterToken = code ? getMasterToken(code) : null
@@ -76,6 +78,31 @@ function RoomCreatedPage() {
 
   const joinedCount = roomState?.players.length ?? 0
   const totalCount = roomState?.playerCount ?? 0
+  const roomIsFull = totalCount > 0 && joinedCount >= totalCount
+  const canStart = joinedCount >= MIN_PLAYERS
+
+  const handleStartGame = async () => {
+    if (!code || !masterToken) return
+
+    if (!roomIsFull) {
+      const confirmed = await showConfirm({
+        title: 'Iniziare comunque?',
+        message: `Mancano ancora giocatori (${joinedCount}/${totalCount}). Vuoi avviare la partita lo stesso?`,
+        confirmLabel: 'Avvia comunque',
+        cancelLabel: 'Annulla',
+      })
+      if (!confirmed) return
+    }
+
+    setStarting(true)
+    try {
+      await startGame(code, masterToken)
+    } catch {
+      showAlert('Impossibile avviare la partita. Riprova.')
+    } finally {
+      setStarting(false)
+    }
+  }
 
   return (
     <BoardPanel>
@@ -118,6 +145,17 @@ function RoomCreatedPage() {
           </div>
         )}
       </section>
+
+      {roomState?.status !== 'STARTED' && (
+        <button
+          type="button"
+          className="button button-primary"
+          onClick={handleStartGame}
+          disabled={!canStart || starting}
+        >
+          {starting ? 'Avvio in corso…' : 'Inizia partita'}
+        </button>
+      )}
 
       <Link to="/" className="button">
         Torna alla home

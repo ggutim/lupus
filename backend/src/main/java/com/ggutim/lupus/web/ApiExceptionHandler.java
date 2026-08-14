@@ -3,6 +3,7 @@ package com.ggutim.lupus.web;
 import com.ggutim.lupus.room.exception.InvalidRulesetException;
 import com.ggutim.lupus.room.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.room.exception.NicknameTakenException;
+import com.ggutim.lupus.room.exception.NotEnoughPlayersException;
 import com.ggutim.lupus.room.exception.PlayerNotFoundException;
 import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
 import com.ggutim.lupus.room.exception.RoomFullException;
@@ -69,6 +70,12 @@ public class ApiExceptionHandler {
     public ResponseEntity<Map<String, Object>> handleMasterTokenMismatch(MasterTokenMismatchException ex) {
         return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body(
                 HttpStatus.FORBIDDEN, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(NotEnoughPlayersException.class)
+    public ResponseEntity<Map<String, Object>> handleNotEnoughPlayers(NotEnoughPlayersException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body(
+                HttpStatus.CONFLICT, ex.getMessage(), null));
     }
 
     private Map<String, Object> body(HttpStatus status, String message, Map<String, String> fieldErrors) {

@@ -23,15 +23,18 @@ public class RoomService {
 
     private final RoomRepository roomRepository;
     private final PlayerRepository playerRepository;
+    private final GameRules gameRules;
     private final SecureRandom random = new SecureRandom();
 
-    public RoomService(RoomRepository roomRepository, PlayerRepository playerRepository) {
+    public RoomService(RoomRepository roomRepository, PlayerRepository playerRepository, GameRules gameRules) {
         this.roomRepository = roomRepository;
         this.playerRepository = playerRepository;
+        this.gameRules = gameRules;
     }
 
     @Transactional
     public Room createRoom(CreateRoomRequest request) {
+        validatePlayerCountRange(request.playerCount());
         Map<Role, Integer> roleCounts = resolveRoleCounts(request);
         String code = generateUniqueCode();
         String masterToken = generateMasterToken();
@@ -63,6 +66,14 @@ public class RoomService {
         }
 
         return room;
+    }
+
+    private void validatePlayerCountRange(int playerCount) {
+        if (playerCount < gameRules.getMinPlayers() || playerCount > gameRules.getMaxPlayers()) {
+            throw new InvalidRulesetException(
+                    "playerCount must be between " + gameRules.getMinPlayers()
+                            + " and " + gameRules.getMaxPlayers());
+        }
     }
 
     private Map<Role, Integer> resolveRoleCounts(CreateRoomRequest request) {

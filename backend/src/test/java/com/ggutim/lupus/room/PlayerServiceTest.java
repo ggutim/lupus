@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 import com.ggutim.lupus.room.dto.RoomStateMessage;
 import com.ggutim.lupus.room.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.room.exception.NicknameTakenException;
+import com.ggutim.lupus.room.exception.NotEnoughPlayersException;
 import com.ggutim.lupus.room.exception.PlayerNotFoundException;
 import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
 import com.ggutim.lupus.room.exception.RoomFullException;
@@ -41,8 +42,10 @@ class PlayerServiceTest {
     @Mock
     private SimpMessagingTemplate messagingTemplate;
 
+    private final GameRules gameRules = new GameRules();
+
     private PlayerService playerService() {
-        return new PlayerService(roomRepository, playerRepository, roomService, messagingTemplate);
+        return new PlayerService(roomRepository, playerRepository, roomService, gameRules, messagingTemplate);
     }
 
     private Room room(int playerCount) {
@@ -81,7 +84,7 @@ class PlayerServiceTest {
     }
 
     @Test
-    void joinRoom_startsRoomWhenLastPlayerJoins() {
+    void joinRoom_doesNotAutoStartWhenRoomBecomesFull() {
         Room room = room(3);
         when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
         when(playerRepository.countByRoomId(any())).thenReturn(2L);
@@ -91,12 +94,11 @@ class PlayerServiceTest {
 
         playerService().joinRoom("ABCD", "Carol");
 
-        assertThat(room.getStatus()).isEqualTo(RoomStatus.STARTED);
-        verify(roomRepository).save(room);
+        assertThat(room.getStatus()).isEqualTo(RoomStatus.WAITING_FOR_PLAYERS);
 
         ArgumentCaptor<RoomStateMessage> messageCaptor = ArgumentCaptor.forClass(RoomStateMessage.class);
         verify(messagingTemplate).convertAndSend(eq("/topic/rooms/ABCD"), messageCaptor.capture());
-        assertThat(messageCaptor.getValue().status()).isEqualTo(RoomStatus.STARTED);
+        assertThat(messageCaptor.getValue().status()).isEqualTo(RoomStatus.WAITING_FOR_PLAYERS);
     }
 
     @Test
@@ -198,6 +200,66 @@ class PlayerServiceTest {
                 .thenThrow(new MasterTokenMismatchException("ABCD"));
 
         assertThatThrownBy(() -> playerService().kickPlayer("ABCD", 1L, "wrong-token"))
+                .isInstanceOf(MasterTokenMismatchException.class);
+    }
+
+    @Test
+    void startGame_startsRoomWhenEnoughPlayersJoined() {
+        Room room = room(10);
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.countByRoomId(any())).thenReturn((long) gameRules.getMinPlayers());
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(List.of());
+
+        playerService().startGame("ABCD", MASTER_TOKEN);
+
+        assertThat(room.getStatus()).isEqualTo(RoomStatus.STARTED);
+        verify(roomRepository).save(room);
+
+        ArgumentCaptor<RoomStateMessage> messageCaptor = ArgumentCaptor.forClass(RoomStateMessage.class);
+        verify(messagingTemplate).convertAndSend(eq("/topic/rooms/ABCD"), messageCaptor.capture());
+        assertThat(messageCaptor.getValue().status()).isEqualTo(RoomStatus.STARTED);
+    }
+
+    @Test
+    void startGame_allowsStartingBeforeRoomIsFull() {
+        Room room = room(10);
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.countByRoomId(any())).thenReturn(5L);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(List.of());
+
+        playerService().startGame("ABCD", MASTER_TOKEN);
+
+        assertThat(room.getStatus()).isEqualTo(RoomStatus.STARTED);
+    }
+
+    @Test
+    void startGame_rejectsWhenFewerThanMinimumPlayersJoined() {
+        Room room = room(10);
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.countByRoomId(any())).thenReturn((long) gameRules.getMinPlayers() - 1);
+
+        assertThatThrownBy(() -> playerService().startGame("ABCD", MASTER_TOKEN))
+                .isInstanceOf(NotEnoughPlayersException.class);
+
+        assertThat(room.getStatus()).isEqualTo(RoomStatus.WAITING_FOR_PLAYERS);
+    }
+
+    @Test
+    void startGame_rejectsWhenAlreadyStarted() {
+        Room room = room(10);
+        room.start();
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+
+        assertThatThrownBy(() -> playerService().startGame("ABCD", MASTER_TOKEN))
+                .isInstanceOf(RoomAlreadyStartedException.class);
+    }
+
+    @Test
+    void startGame_rejectsWrongMasterToken() {
+        when(roomService.findRoomForMaster("ABCD", "wrong-token"))
+                .thenThrow(new MasterTokenMismatchException("ABCD"));
+
+        assertThatThrownBy(() -> playerService().startGame("ABCD", "wrong-token"))
                 .isInstanceOf(MasterTokenMismatchException.class);
     }
 

@@ -1,7 +1,6 @@
 package com.ggutim.lupus.room.dto;
 
 import com.ggutim.lupus.room.GameMode;
-import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
@@ -9,14 +8,17 @@ import jakarta.validation.constraints.NotNull;
  * Payload sent by the master at the end of the room-creation wizard:
  * game mode, total player count, and the number of werewolves and priests.
  * The remaining players are assigned the villager role.
+ *
+ * <p>The allowed range for {@code playerCount} is configurable (see
+ * {@link com.ggutim.lupus.room.GameRules}) and is therefore validated in
+ * {@link com.ggutim.lupus.room.RoomService} rather than with a
+ * compile-time bean validation constraint here.
  */
 public record CreateRoomRequest(
         @NotNull(message = "gameMode is required")
         GameMode gameMode,
 
         @NotNull(message = "playerCount is required")
-        @Min(value = 4, message = "playerCount must be at least 4")
-        @Max(value = 30, message = "playerCount must be at most 30")
         Integer playerCount,
 
         @NotNull(message = "werewolfCount is required")

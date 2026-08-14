@@ -3,6 +3,7 @@ package com.ggutim.lupus.room;
 import com.ggutim.lupus.room.dto.PlayerResponse;
 import com.ggutim.lupus.room.dto.RoomStateMessage;
 import com.ggutim.lupus.room.exception.NicknameTakenException;
+import com.ggutim.lupus.room.exception.NotEnoughPlayersException;
 import com.ggutim.lupus.room.exception.PlayerNotFoundException;
 import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
 import com.ggutim.lupus.room.exception.RoomFullException;
@@ -18,13 +19,15 @@ public class PlayerService {
     private final RoomRepository roomRepository;
     private final PlayerRepository playerRepository;
     private final RoomService roomService;
+    private final GameRules gameRules;
     private final SimpMessagingTemplate messagingTemplate;
 
     public PlayerService(RoomRepository roomRepository, PlayerRepository playerRepository, RoomService roomService,
-                          SimpMessagingTemplate messagingTemplate) {
+                          GameRules gameRules, SimpMessagingTemplate messagingTemplate) {
         this.roomRepository = roomRepository;
         this.playerRepository = playerRepository;
         this.roomService = roomService;
+        this.gameRules = gameRules;
         this.messagingTemplate = messagingTemplate;
     }
 
@@ -50,12 +53,6 @@ public class PlayerService {
 
         Player player = playerRepository.save(new Player(room, normalizedNickname));
 
-        long updatedPlayerCount = currentPlayerCount + 1;
-        if (updatedPlayerCount >= room.getPlayerCount()) {
-            room.start();
-            roomRepository.save(room);
-        }
-
         broadcastRoomState(room);
         return player;
     }
@@ -73,6 +70,25 @@ public class PlayerService {
                 .orElseThrow(() -> new PlayerNotFoundException(playerId));
 
         playerRepository.delete(player);
+
+        broadcastRoomState(room);
+    }
+
+    @Transactional
+    public void startGame(String code, String masterToken) {
+        Room room = roomService.findRoomForMaster(code, masterToken);
+
+        if (room.getStatus() == RoomStatus.STARTED) {
+            throw new RoomAlreadyStartedException(code);
+        }
+
+        long currentPlayerCount = playerRepository.countByRoomId(room.getId());
+        if (currentPlayerCount < gameRules.getMinPlayers()) {
+            throw new NotEnoughPlayersException(code, gameRules.getMinPlayers());
+        }
+
+        room.start();
+        roomRepository.save(room);
 
         broadcastRoomState(room);
     }

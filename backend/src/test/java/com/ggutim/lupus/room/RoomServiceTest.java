@@ -28,7 +28,10 @@ class RoomServiceTest {
     private PlayerRepository playerRepository;
 
     private RoomService roomService() {
-        return new RoomService(roomRepository, playerRepository);
+        GameRules gameRules = new GameRules();
+        gameRules.setMinPlayers(4);
+        gameRules.setMaxPlayers(30);
+        return new RoomService(roomRepository, playerRepository, gameRules);
     }
 
     private Room room(String code, String masterToken, int playerCount) {
@@ -60,6 +63,42 @@ class RoomServiceTest {
 
         assertThatThrownBy(() -> roomService.createRoom(request))
                 .isInstanceOf(InvalidRulesetException.class);
+    }
+
+    @Test
+    void createRoom_rejectsPlayerCountBelowConfiguredMinimum() {
+        RoomService roomService = roomService();
+
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 3, 1, 0);
+
+        assertThatThrownBy(() -> roomService.createRoom(request))
+                .isInstanceOf(InvalidRulesetException.class);
+    }
+
+    @Test
+    void createRoom_rejectsPlayerCountAboveConfiguredMaximum() {
+        RoomService roomService = roomService();
+
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 31, 1, 0);
+
+        assertThatThrownBy(() -> roomService.createRoom(request))
+                .isInstanceOf(InvalidRulesetException.class);
+    }
+
+    @Test
+    void createRoom_respectsConfiguredPlayerCountRange() {
+        GameRules gameRules = new GameRules();
+        gameRules.setMinPlayers(2);
+        gameRules.setMaxPlayers(3);
+        RoomService roomService = new RoomService(roomRepository, playerRepository, gameRules);
+        when(roomRepository.existsByCode(any())).thenReturn(false);
+        when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 3, 1, 0);
+
+        Room room = roomService.createRoom(request);
+
+        assertThat(room.getPlayerCount()).isEqualTo(3);
     }
 
     @Test

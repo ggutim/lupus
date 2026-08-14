@@ -7,3 +7,8 @@ spring:
     open-in-view: false
     hibernate:
       ddl-auto: update
+
+lupus:
+  game:
+    min-players: 4
+    max-players: 30
