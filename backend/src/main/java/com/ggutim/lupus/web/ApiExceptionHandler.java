@@ -1,10 +1,12 @@
 package com.ggutim.lupus.web;
 
+import com.ggutim.lupus.room.exception.InvalidGamePhaseException;
 import com.ggutim.lupus.room.exception.InvalidRulesetException;
 import com.ggutim.lupus.room.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.room.exception.NicknameTakenException;
 import com.ggutim.lupus.room.exception.NotEnoughPlayersException;
 import com.ggutim.lupus.room.exception.PlayerNotFoundException;
+import com.ggutim.lupus.room.exception.PlayerTokenMismatchException;
 import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
 import com.ggutim.lupus.room.exception.RoomFullException;
 import com.ggutim.lupus.room.exception.RoomNotFoundException;
@@ -74,6 +76,18 @@ public class ApiExceptionHandler {
 
     @ExceptionHandler(NotEnoughPlayersException.class)
     public ResponseEntity<Map<String, Object>> handleNotEnoughPlayers(NotEnoughPlayersException ex) {
+        return ResponseEntity.status(HttpStatus.CONFLICT).body(body(
+                HttpStatus.CONFLICT, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(PlayerTokenMismatchException.class)
+    public ResponseEntity<Map<String, Object>> handlePlayerTokenMismatch(PlayerTokenMismatchException ex) {
+        return ResponseEntity.status(HttpStatus.FORBIDDEN).body(body(
+                HttpStatus.FORBIDDEN, ex.getMessage(), null));
+    }
+
+    @ExceptionHandler(InvalidGamePhaseException.class)
+    public ResponseEntity<Map<String, Object>> handleInvalidGamePhase(InvalidGamePhaseException ex) {
         return ResponseEntity.status(HttpStatus.CONFLICT).body(body(
                 HttpStatus.CONFLICT, ex.getMessage(), null));
     }

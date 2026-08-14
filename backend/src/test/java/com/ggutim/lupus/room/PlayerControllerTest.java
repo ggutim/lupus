@@ -6,9 +6,11 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ggutim.lupus.room.dto.PlayerRoleResponse;
 import com.ggutim.lupus.room.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.room.exception.NicknameTakenException;
 import com.ggutim.lupus.room.exception.PlayerNotFoundException;
+import com.ggutim.lupus.room.exception.PlayerTokenMismatchException;
 import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
 import com.ggutim.lupus.room.exception.RoomFullException;
 import com.ggutim.lupus.room.exception.RoomNotFoundException;
@@ -36,7 +38,7 @@ class PlayerControllerTest {
     void joinRoom_returnsCreatedPlayer() {
         Room room = new Room("ABCD", "secret-token", GameMode.CLASSIC, 6, Map.of(
                 Role.WEREWOLF, 1, Role.PRIEST, 0, Role.VILLAGER, 5));
-        when(playerService.joinRoom(eq("ABCD"), eq("Alice"))).thenReturn(new Player(room, "Alice"));
+        when(playerService.joinRoom(eq("ABCD"), eq("Alice"))).thenReturn(new Player(room, "Alice", "player-token"));
 
         mvc.post().uri("/api/rooms/abcd/players")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -148,6 +150,30 @@ class PlayerControllerTest {
                 .kickPlayer(eq("ABCD"), eq(42L), any());
 
         mvc.delete().uri("/api/rooms/ABCD/players/42")
+                .assertThat()
+                .hasStatus(403);
+    }
+
+    @Test
+    void getRole_returnsRoleForValidToken() {
+        when(playerService.getRole(eq("ABCD"), eq(42L), eq("player-token")))
+                .thenReturn(new PlayerRoleResponse(Role.WEREWOLF));
+
+        mvc.get().uri("/api/rooms/ABCD/players/42/role")
+                .header("X-Player-Token", "player-token")
+                .assertThat()
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.role").isEqualTo("WEREWOLF");
+    }
+
+    @Test
+    void getRole_returnsForbiddenForWrongPlayerToken() {
+        doThrow(new PlayerTokenMismatchException(42L)).when(playerService)
+                .getRole(eq("ABCD"), eq(42L), eq("wrong-token"));
+
+        mvc.get().uri("/api/rooms/ABCD/players/42/role")
+                .header("X-Player-Token", "wrong-token")
                 .assertThat()
                 .hasStatus(403);
     }

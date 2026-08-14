@@ -2,6 +2,8 @@ package com.ggutim.lupus.room;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.EnumType;
+import jakarta.persistence.Enumerated;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
@@ -30,6 +32,15 @@ public class Player {
     @Column(nullable = false)
     private String nickname;
 
+    @Column(nullable = false, unique = true, length = 43)
+    private String playerToken;
+
+    @Enumerated(EnumType.STRING)
+    private Role role;
+
+    @Column(nullable = false)
+    private boolean alive = true;
+
     @Column(nullable = false)
     private Instant joinedAt;
 
@@ -37,9 +48,10 @@ public class Player {
         // required by JPA
     }
 
-    public Player(Room room, String nickname) {
+    public Player(Room room, String nickname, String playerToken) {
         this.room = room;
         this.nickname = nickname;
+        this.playerToken = playerToken;
         this.joinedAt = Instant.now();
     }
 
@@ -53,6 +65,36 @@ public class Player {
 
     public String getNickname() {
         return nickname;
+    }
+
+    public boolean hasPlayerToken(String candidate) {
+        return playerToken.equals(candidate);
+    }
+
+    /**
+     * Package-private on purpose: the player token must only ever be
+     * exposed to the client once, right after joining. Anything that
+     * needs to check a caller-provided token should use
+     * {@link #hasPlayerToken(String)} instead.
+     */
+    String getPlayerToken() {
+        return playerToken;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
+    }
+
+    public boolean isAlive() {
+        return alive;
+    }
+
+    public void kill() {
+        this.alive = false;
     }
 
     public Instant getJoinedAt() {

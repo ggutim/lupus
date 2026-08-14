@@ -7,7 +7,6 @@ import com.ggutim.lupus.room.exception.InvalidRulesetException;
 import com.ggutim.lupus.room.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.room.exception.RoomNotFoundException;
 import java.security.SecureRandom;
-import java.util.Base64;
 import java.util.EnumMap;
 import java.util.Map;
 import org.springframework.stereotype.Service;
@@ -19,7 +18,6 @@ public class RoomService {
     private static final String CODE_ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     private static final int CODE_LENGTH = 4;
     private static final int MAX_CODE_GENERATION_ATTEMPTS = 10;
-    private static final int MASTER_TOKEN_BYTES = 32;
 
     private final RoomRepository roomRepository;
     private final PlayerRepository playerRepository;
@@ -37,7 +35,7 @@ public class RoomService {
         validatePlayerCountRange(request.playerCount());
         Map<Role, Integer> roleCounts = resolveRoleCounts(request);
         String code = generateUniqueCode();
-        String masterToken = generateMasterToken();
+        String masterToken = SecretTokens.generate();
         Room room = new Room(code, masterToken, request.gameMode(), request.playerCount(), roleCounts);
         return roomRepository.save(room);
     }
@@ -111,11 +109,5 @@ public class RoomService {
             builder.append(CODE_ALPHABET.charAt(random.nextInt(CODE_ALPHABET.length())));
         }
         return builder.toString();
-    }
-
-    private String generateMasterToken() {
-        byte[] bytes = new byte[MASTER_TOKEN_BYTES];
-        random.nextBytes(bytes);
-        return Base64.getUrlEncoder().withoutPadding().encodeToString(bytes);
     }
 }

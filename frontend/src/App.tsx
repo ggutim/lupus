@@ -4,6 +4,8 @@ import CreateRoomPage from './pages/CreateRoomPage'
 import JoinRoomPage from './pages/JoinRoomPage'
 import RoomCreatedPage from './pages/RoomCreatedPage'
 import PlayerWaitingPage from './pages/PlayerWaitingPage'
+import PlayerRolePage from './pages/PlayerRolePage'
+import MasterGamePage from './pages/MasterGamePage'
 
 function App() {
   return (
@@ -13,6 +15,8 @@ function App() {
       <Route path="/join" element={<JoinRoomPage />} />
       <Route path="/room/:code" element={<RoomCreatedPage />} />
       <Route path="/room/:code/waiting" element={<PlayerWaitingPage />} />
+      <Route path="/room/:code/role" element={<PlayerRolePage />} />
+      <Route path="/room/:code/game" element={<MasterGamePage />} />
     </Routes>
   )
 }

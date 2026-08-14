@@ -18,8 +18,8 @@ function PlayerWaitingPage() {
       if (state.status === 'STARTED') {
         showAlert({
           title: 'La partita sta per iniziare',
-          message: 'Il narratore vi guiderà a breve nella prossima fase.',
-        })
+          message: 'Controlla il tuo ruolo!',
+        }).then(() => navigate(`/room/${code}/role`, { state: { nickname } }))
         return
       }
 

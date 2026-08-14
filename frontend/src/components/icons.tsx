@@ -47,3 +47,53 @@ export function MeepleIcon(props: IconProps) {
     </svg>
   )
 }
+
+export function SkullIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path
+        d="M32 8c-11 0-19 8-19 18 0 6 3 11 7 14v8c0 2 2 4 4 4h4v-6h4v6h4v-6h4v6h4c2 0 4-2 4-4v-8c4-3 7-8 7-14 0-10-8-18-19-18Z"
+        fill="currentColor"
+      />
+      <circle cx="24" cy="28" r="4" fill="#1a1108" />
+      <circle cx="40" cy="28" r="4" fill="#1a1108" />
+      <path d="M29 36h6l-3 5-3-5Z" fill="#1a1108" />
+    </svg>
+  )
+}
+
+export function MoonIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path
+        d="M42 8c-13 2-22 13-22 26s9 24 22 26C50 56 56 45 56 32c0-3-.4-6-1-9-4 6-11 10-19 10-12 0-22-10-22-22 0-3 .6-6 1.6-9C21 1 32-1 42 8Z"
+        fill="currentColor"
+      />
+    </svg>
+  )
+}
+
+export function SunIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <circle cx="32" cy="32" r="12" fill="currentColor" />
+      <g stroke="currentColor" strokeWidth="4" strokeLinecap="round">
+        <path d="M32 6v8M32 50v8M6 32h8M50 32h8" />
+        <path d="M13 13l6 6M45 45l6 6M51 13l-6 6M19 45l-6 6" />
+      </g>
+    </svg>
+  )
+}
+
+export function EyeIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path
+        d="M32 16c-14 0-24 11-27 16 3 5 13 16 27 16s24-11 27-16c-3-5-13-16-27-16Z"
+        fill="currentColor"
+      />
+      <circle cx="32" cy="32" r="8" fill="#1a1108" />
+      <circle cx="32" cy="32" r="3" fill="currentColor" />
+    </svg>
+  )
+}

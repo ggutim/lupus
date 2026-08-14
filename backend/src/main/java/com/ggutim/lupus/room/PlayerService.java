@@ -1,10 +1,13 @@
 package com.ggutim.lupus.room;
 
 import com.ggutim.lupus.room.dto.PlayerResponse;
+import com.ggutim.lupus.room.dto.PlayerRoleResponse;
 import com.ggutim.lupus.room.dto.RoomStateMessage;
+import com.ggutim.lupus.room.exception.InvalidRulesetException;
 import com.ggutim.lupus.room.exception.NicknameTakenException;
 import com.ggutim.lupus.room.exception.NotEnoughPlayersException;
 import com.ggutim.lupus.room.exception.PlayerNotFoundException;
+import com.ggutim.lupus.room.exception.PlayerTokenMismatchException;
 import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
 import com.ggutim.lupus.room.exception.RoomFullException;
 import com.ggutim.lupus.room.exception.RoomNotFoundException;
@@ -19,14 +22,16 @@ public class PlayerService {
     private final RoomRepository roomRepository;
     private final PlayerRepository playerRepository;
     private final RoomService roomService;
+    private final GameService gameService;
     private final GameRules gameRules;
     private final SimpMessagingTemplate messagingTemplate;
 
     public PlayerService(RoomRepository roomRepository, PlayerRepository playerRepository, RoomService roomService,
-                          GameRules gameRules, SimpMessagingTemplate messagingTemplate) {
+                          GameService gameService, GameRules gameRules, SimpMessagingTemplate messagingTemplate) {
         this.roomRepository = roomRepository;
         this.playerRepository = playerRepository;
         this.roomService = roomService;
+        this.gameService = gameService;
         this.gameRules = gameRules;
         this.messagingTemplate = messagingTemplate;
     }
@@ -51,7 +56,8 @@ public class PlayerService {
             throw new NicknameTakenException(normalizedNickname);
         }
 
-        Player player = playerRepository.save(new Player(room, normalizedNickname));
+        String playerToken = SecretTokens.generate();
+        Player player = playerRepository.save(new Player(room, normalizedNickname, playerToken));
 
         broadcastRoomState(room);
         return player;
@@ -82,15 +88,36 @@ public class PlayerService {
             throw new RoomAlreadyStartedException(code);
         }
 
-        long currentPlayerCount = playerRepository.countByRoomId(room.getId());
-        if (currentPlayerCount < gameRules.getMinPlayers()) {
+        List<Player> players = playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId());
+        if (players.size() < gameRules.getMinPlayers()) {
             throw new NotEnoughPlayersException(code, gameRules.getMinPlayers());
         }
 
-        room.start();
-        roomRepository.save(room);
+        int specialRoleCount = room.getRoleCounts().getOrDefault(Role.WEREWOLF, 0)
+                + room.getRoleCounts().getOrDefault(Role.PRIEST, 0);
+        if (specialRoleCount > players.size()) {
+            throw new InvalidRulesetException(
+                    "Not enough players joined to fill the configured werewolf and priest roles");
+        }
+
+        gameService.startGame(room, players);
 
         broadcastRoomState(room);
+    }
+
+    public PlayerRoleResponse getRole(String code, Long playerId, String playerToken) {
+        Room room = roomRepository.findByCode(code)
+                .orElseThrow(() -> new RoomNotFoundException(code));
+
+        Player player = playerRepository.findById(playerId)
+                .filter(p -> p.getRoom().getId().equals(room.getId()))
+                .orElseThrow(() -> new PlayerNotFoundException(playerId));
+
+        if (playerToken == null || !player.hasPlayerToken(playerToken)) {
+            throw new PlayerTokenMismatchException(playerId);
+        }
+
+        return new PlayerRoleResponse(player.getRole());
     }
 
     private void broadcastRoomState(Room room) {

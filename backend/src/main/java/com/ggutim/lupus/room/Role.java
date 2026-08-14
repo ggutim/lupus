@@ -5,7 +5,17 @@ package com.ggutim.lupus.room;
  * currently fixed, but is expected to grow over time.
  */
 public enum Role {
-    VILLAGER,
-    WEREWOLF,
-    PRIEST
+    VILLAGER(Alignment.GOOD),
+    WEREWOLF(Alignment.EVIL),
+    PRIEST(Alignment.GOOD);
+
+    private final Alignment alignment;
+
+    Role(Alignment alignment) {
+        this.alignment = alignment;
+    }
+
+    public Alignment getAlignment() {
+        return alignment;
+    }
 }

@@ -4,14 +4,18 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ggutim.lupus.room.dto.PlayerRoleResponse;
 import com.ggutim.lupus.room.dto.RoomStateMessage;
+import com.ggutim.lupus.room.exception.InvalidRulesetException;
 import com.ggutim.lupus.room.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.room.exception.NicknameTakenException;
 import com.ggutim.lupus.room.exception.NotEnoughPlayersException;
 import com.ggutim.lupus.room.exception.PlayerNotFoundException;
+import com.ggutim.lupus.room.exception.PlayerTokenMismatchException;
 import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
 import com.ggutim.lupus.room.exception.RoomFullException;
 import com.ggutim.lupus.room.exception.RoomNotFoundException;
@@ -40,17 +44,27 @@ class PlayerServiceTest {
     private RoomService roomService;
 
     @Mock
+    private GameService gameService;
+
+    @Mock
     private SimpMessagingTemplate messagingTemplate;
 
     private final GameRules gameRules = new GameRules();
 
     private PlayerService playerService() {
-        return new PlayerService(roomRepository, playerRepository, roomService, gameRules, messagingTemplate);
+        return new PlayerService(roomRepository, playerRepository, roomService, gameService, gameRules,
+                messagingTemplate);
     }
 
     private Room room(int playerCount) {
         return new Room("ABCD", MASTER_TOKEN, GameMode.CLASSIC, playerCount, Map.of(
                 Role.WEREWOLF, 1, Role.PRIEST, 0, Role.VILLAGER, playerCount - 1));
+    }
+
+    private List<Player> players(Room room, int count) {
+        return java.util.stream.IntStream.range(0, count)
+                .mapToObj(i -> new Player(room, "PLAYER" + i, "token" + i))
+                .toList();
     }
 
     @Test
@@ -144,7 +158,7 @@ class PlayerServiceTest {
     void kickPlayer_removesPlayerAndBroadcastsState() {
         Room room = room(6);
         setId(room, 1L);
-        Player player = new Player(room, "ALICE");
+        Player player = new Player(room, "ALICE", "alice-token");
         setId(player, 42L);
 
         when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
@@ -174,7 +188,7 @@ class PlayerServiceTest {
         setId(room, 1L);
         Room otherRoom = room(6);
         setId(otherRoom, 2L);
-        Player player = new Player(otherRoom, "ALICE");
+        Player player = new Player(otherRoom, "ALICE", "alice-token");
         setId(player, 42L);
 
         when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
@@ -206,42 +220,54 @@ class PlayerServiceTest {
     @Test
     void startGame_startsRoomWhenEnoughPlayersJoined() {
         Room room = room(10);
+        List<Player> players = players(room, gameRules.getMinPlayers());
         when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
-        when(playerRepository.countByRoomId(any())).thenReturn((long) gameRules.getMinPlayers());
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(List.of());
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(players);
 
         playerService().startGame("ABCD", MASTER_TOKEN);
 
-        assertThat(room.getStatus()).isEqualTo(RoomStatus.STARTED);
-        verify(roomRepository).save(room);
-
-        ArgumentCaptor<RoomStateMessage> messageCaptor = ArgumentCaptor.forClass(RoomStateMessage.class);
-        verify(messagingTemplate).convertAndSend(eq("/topic/rooms/ABCD"), messageCaptor.capture());
-        assertThat(messageCaptor.getValue().status()).isEqualTo(RoomStatus.STARTED);
+        verify(gameService).startGame(room, players);
+        verify(messagingTemplate).convertAndSend(eq("/topic/rooms/ABCD"), any(RoomStateMessage.class));
     }
 
     @Test
     void startGame_allowsStartingBeforeRoomIsFull() {
         Room room = room(10);
+        List<Player> players = players(room, 5);
         when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
-        when(playerRepository.countByRoomId(any())).thenReturn(5L);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(List.of());
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(players);
 
         playerService().startGame("ABCD", MASTER_TOKEN);
 
-        assertThat(room.getStatus()).isEqualTo(RoomStatus.STARTED);
+        verify(gameService).startGame(room, players);
     }
 
     @Test
     void startGame_rejectsWhenFewerThanMinimumPlayersJoined() {
         Room room = room(10);
+        List<Player> players = players(room, gameRules.getMinPlayers() - 1);
         when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
-        when(playerRepository.countByRoomId(any())).thenReturn((long) gameRules.getMinPlayers() - 1);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(players);
 
         assertThatThrownBy(() -> playerService().startGame("ABCD", MASTER_TOKEN))
                 .isInstanceOf(NotEnoughPlayersException.class);
 
-        assertThat(room.getStatus()).isEqualTo(RoomStatus.WAITING_FOR_PLAYERS);
+        verify(gameService, never()).startGame(any(), any());
+    }
+
+    @Test
+    void startGame_rejectsWhenNotEnoughPlayersForSpecialRoles() {
+        // room configured with 1 werewolf + 1 priest, but only 2 players joined total minus villager slack
+        Room room = new Room("ABCD", MASTER_TOKEN, GameMode.CLASSIC, 10, Map.of(
+                Role.WEREWOLF, 3, Role.PRIEST, 2, Role.VILLAGER, 5));
+        List<Player> players = players(room, gameRules.getMinPlayers());
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(players);
+
+        assertThatThrownBy(() -> playerService().startGame("ABCD", MASTER_TOKEN))
+                .isInstanceOf(InvalidRulesetException.class);
+
+        verify(gameService, never()).startGame(any(), any());
     }
 
     @Test
@@ -261,6 +287,50 @@ class PlayerServiceTest {
 
         assertThatThrownBy(() -> playerService().startGame("ABCD", "wrong-token"))
                 .isInstanceOf(MasterTokenMismatchException.class);
+    }
+
+    @Test
+    void getRole_returnsRoleForValidToken() {
+        Room room = room(6);
+        setId(room, 1L);
+        Player player = new Player(room, "ALICE", "alice-token");
+        setId(player, 42L);
+        player.setRole(Role.WEREWOLF);
+
+        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
+
+        PlayerRoleResponse response = playerService().getRole("ABCD", 42L, "alice-token");
+
+        assertThat(response.role()).isEqualTo(Role.WEREWOLF);
+    }
+
+    @Test
+    void getRole_rejectsWrongPlayerToken() {
+        Room room = room(6);
+        setId(room, 1L);
+        Player player = new Player(room, "ALICE", "alice-token");
+        setId(player, 42L);
+
+        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
+
+        assertThatThrownBy(() -> playerService().getRole("ABCD", 42L, "wrong-token"))
+                .isInstanceOf(PlayerTokenMismatchException.class);
+    }
+
+    @Test
+    void getRole_rejectsMissingPlayerToken() {
+        Room room = room(6);
+        setId(room, 1L);
+        Player player = new Player(room, "ALICE", "alice-token");
+        setId(player, 42L);
+
+        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
+
+        assertThatThrownBy(() -> playerService().getRole("ABCD", 42L, null))
+                .isInstanceOf(PlayerTokenMismatchException.class);
     }
 
     private void setId(Object entity, Long id) {

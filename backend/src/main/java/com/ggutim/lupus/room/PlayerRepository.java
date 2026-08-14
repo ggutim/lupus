@@ -7,6 +7,8 @@ public interface PlayerRepository extends JpaRepository<Player, Long> {
 
     List<Player> findByRoomIdOrderByJoinedAtAsc(Long roomId);
 
+    List<Player> findByRoomIdAndAliveTrueOrderByJoinedAtAsc(Long roomId);
+
     long countByRoomId(Long roomId);
 
     boolean existsByRoomIdAndNicknameIgnoreCase(Long roomId, String nickname);

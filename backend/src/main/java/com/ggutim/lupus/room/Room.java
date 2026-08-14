@@ -54,6 +54,26 @@ public class Room {
     @Column(nullable = false)
     private RoomStatus status;
 
+    @Enumerated(EnumType.STRING)
+    private GamePhase phase;
+
+    @Column(nullable = false)
+    private int roundNumber = 1;
+
+    private Long pendingWerewolfVictimId;
+
+    private Long pendingPriestTargetId;
+
+    @Enumerated(EnumType.STRING)
+    private Alignment priestCheckResult;
+
+    private Long lastNightVictimId;
+
+    private Long pendingVoteVictimId;
+
+    @Enumerated(EnumType.STRING)
+    private Alignment winner;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -111,6 +131,70 @@ public class Room {
 
     public void start() {
         this.status = RoomStatus.STARTED;
+    }
+
+    public GamePhase getPhase() {
+        return phase;
+    }
+
+    public void setPhase(GamePhase phase) {
+        this.phase = phase;
+    }
+
+    public int getRoundNumber() {
+        return roundNumber;
+    }
+
+    public void setRoundNumber(int roundNumber) {
+        this.roundNumber = roundNumber;
+    }
+
+    public Long getPendingWerewolfVictimId() {
+        return pendingWerewolfVictimId;
+    }
+
+    public void setPendingWerewolfVictimId(Long pendingWerewolfVictimId) {
+        this.pendingWerewolfVictimId = pendingWerewolfVictimId;
+    }
+
+    public Long getPendingPriestTargetId() {
+        return pendingPriestTargetId;
+    }
+
+    public void setPendingPriestTargetId(Long pendingPriestTargetId) {
+        this.pendingPriestTargetId = pendingPriestTargetId;
+    }
+
+    public Alignment getPriestCheckResult() {
+        return priestCheckResult;
+    }
+
+    public void setPriestCheckResult(Alignment priestCheckResult) {
+        this.priestCheckResult = priestCheckResult;
+    }
+
+    public Long getLastNightVictimId() {
+        return lastNightVictimId;
+    }
+
+    public void setLastNightVictimId(Long lastNightVictimId) {
+        this.lastNightVictimId = lastNightVictimId;
+    }
+
+    public Long getPendingVoteVictimId() {
+        return pendingVoteVictimId;
+    }
+
+    public void setPendingVoteVictimId(Long pendingVoteVictimId) {
+        this.pendingVoteVictimId = pendingVoteVictimId;
+    }
+
+    public Alignment getWinner() {
+        return winner;
+    }
+
+    public void setWinner(Alignment winner) {
+        this.winner = winner;
     }
 
     public Instant getCreatedAt() {

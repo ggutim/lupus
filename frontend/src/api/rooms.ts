@@ -33,6 +33,12 @@ export interface RoomState {
   players: Player[]
 }
 
+export interface JoinRoomResponse {
+  id: number
+  nickname: string
+  playerToken: string
+}
+
 export class ApiError extends Error {
   status: number
   fieldErrors?: Record<string, string>
@@ -78,7 +84,7 @@ export async function getRoomState(code: string, masterToken: string): Promise<R
   return response.json()
 }
 
-export async function joinRoom(code: string, nickname: string): Promise<Player> {
+export async function joinRoom(code: string, nickname: string): Promise<JoinRoomResponse> {
   const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/players`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -90,6 +96,19 @@ export async function joinRoom(code: string, nickname: string): Promise<Player> 
   }
 
   return response.json()
+}
+
+export async function getPlayerRole(code: string, playerId: number, playerToken: string): Promise<Role> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/players/${playerId}/role`, {
+    headers: { 'X-Player-Token': playerToken },
+  })
+
+  if (!response.ok) {
+    await handleErrorResponse(response, 'Impossibile recuperare il tuo ruolo.')
+  }
+
+  const body = await response.json()
+  return body.role
 }
 
 export async function kickPlayer(code: string, playerId: number, masterToken: string): Promise<void> {

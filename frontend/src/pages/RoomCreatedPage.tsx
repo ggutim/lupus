@@ -49,14 +49,14 @@ function RoomCreatedPage() {
   }, [code, masterToken, navigate, showAlert])
 
   useEffect(() => {
-    if (roomState?.status === 'STARTED' && !hasAnnouncedStart.current) {
+    if (roomState?.status === 'STARTED' && !hasAnnouncedStart.current && code) {
       hasAnnouncedStart.current = true
       showAlert({
         title: 'La partita sta per iniziare',
         message: 'Tutti i giocatori sono pronti!',
-      })
+      }).then(() => navigate(`/room/${code}/game`))
     }
-  }, [roomState, showAlert])
+  }, [roomState, showAlert, code, navigate])
 
   const handleKick = async (playerId: number, nickname: string) => {
     if (!code || !masterToken) return

@@ -1,6 +1,7 @@
 import { useState, type FormEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { ApiError, joinRoom } from '../api/rooms'
+import { storePlayerToken } from '../api/playerToken'
 import BoardPanel from '../components/BoardPanel'
 
 function JoinRoomPage() {
@@ -17,7 +18,8 @@ function JoinRoomPage() {
     try {
       const trimmedNickname = nickname.trim()
       const trimmedCode = code.trim().toUpperCase()
-      await joinRoom(trimmedCode, trimmedNickname)
+      const player = await joinRoom(trimmedCode, trimmedNickname)
+      storePlayerToken(trimmedCode, player.id, player.playerToken)
       navigate(`/room/${trimmedCode}/waiting`, { state: { nickname: trimmedNickname.toUpperCase() } })
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossibile unirsi alla stanza. Riprova.')
