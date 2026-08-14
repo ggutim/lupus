@@ -1,15 +1,15 @@
 package com.ggutim.lupus.web;
 
-import com.ggutim.lupus.room.exception.InvalidGamePhaseException;
-import com.ggutim.lupus.room.exception.InvalidRulesetException;
-import com.ggutim.lupus.room.exception.MasterTokenMismatchException;
-import com.ggutim.lupus.room.exception.NicknameTakenException;
-import com.ggutim.lupus.room.exception.NotEnoughPlayersException;
-import com.ggutim.lupus.room.exception.PlayerNotFoundException;
-import com.ggutim.lupus.room.exception.PlayerTokenMismatchException;
-import com.ggutim.lupus.room.exception.RoomAlreadyStartedException;
-import com.ggutim.lupus.room.exception.RoomFullException;
-import com.ggutim.lupus.room.exception.RoomNotFoundException;
+import com.ggutim.lupus.exception.InvalidGamePhaseException;
+import com.ggutim.lupus.exception.InvalidRulesetException;
+import com.ggutim.lupus.exception.MasterTokenMismatchException;
+import com.ggutim.lupus.exception.NicknameTakenException;
+import com.ggutim.lupus.exception.NotEnoughPlayersException;
+import com.ggutim.lupus.exception.PlayerNotFoundException;
+import com.ggutim.lupus.exception.PlayerTokenMismatchException;
+import com.ggutim.lupus.exception.RoomAlreadyStartedException;
+import com.ggutim.lupus.exception.RoomFullException;
+import com.ggutim.lupus.exception.RoomNotFoundException;
 import java.time.Instant;
 import java.util.LinkedHashMap;
 import java.util.Map;
