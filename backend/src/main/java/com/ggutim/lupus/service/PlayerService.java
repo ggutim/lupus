@@ -13,6 +13,7 @@ import com.ggutim.lupus.exception.PlayerTokenMismatchException;
 import com.ggutim.lupus.exception.RoomAlreadyStartedException;
 import com.ggutim.lupus.exception.RoomFullException;
 import com.ggutim.lupus.exception.RoomNotFoundException;
+import com.ggutim.lupus.model.GamePhase;
 import com.ggutim.lupus.model.Player;
 import com.ggutim.lupus.model.Role;
 import com.ggutim.lupus.model.Room;
@@ -125,7 +126,8 @@ public class PlayerService {
             throw new PlayerTokenMismatchException(playerId);
         }
 
-        return new PlayerRoleResponse(player.getRole());
+        boolean visiblyAlive = player.isAlive() || room.getPhase() == GamePhase.MORNING_REVEAL;
+        return new PlayerRoleResponse(player.getRole(), visiblyAlive);
     }
 
     private void broadcastRoomState(Room room) {

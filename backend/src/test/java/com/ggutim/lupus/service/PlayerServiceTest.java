@@ -22,6 +22,7 @@ import com.ggutim.lupus.exception.RoomAlreadyStartedException;
 import com.ggutim.lupus.exception.RoomFullException;
 import com.ggutim.lupus.exception.RoomNotFoundException;
 import com.ggutim.lupus.model.GameMode;
+import com.ggutim.lupus.model.GamePhase;
 import com.ggutim.lupus.model.Player;
 import com.ggutim.lupus.model.Role;
 import com.ggutim.lupus.model.Room;
@@ -312,6 +313,58 @@ class PlayerServiceTest {
         PlayerRoleResponse response = playerService().getRole("ABCD", 42L, "alice-token");
 
         assertThat(response.role()).isEqualTo(Role.WEREWOLF);
+        assertThat(response.alive()).isTrue();
+    }
+
+    @Test
+    void getRole_hidesOvernightDeathDuringMorningReveal() {
+        Room room = room(6);
+        setId(room, 1L);
+        room.setPhase(GamePhase.MORNING_REVEAL);
+        Player player = new Player(room, "ALICE", "alice-token");
+        setId(player, 42L);
+        player.kill();
+
+        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
+
+        PlayerRoleResponse response = playerService().getRole("ABCD", 42L, "alice-token");
+
+        assertThat(response.alive()).isTrue();
+    }
+
+    @Test
+    void getRole_revealsOvernightDeathOnceDiscussionStarts() {
+        Room room = room(6);
+        setId(room, 1L);
+        room.setPhase(GamePhase.DISCUSSION);
+        Player player = new Player(room, "ALICE", "alice-token");
+        setId(player, 42L);
+        player.kill();
+
+        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
+
+        PlayerRoleResponse response = playerService().getRole("ABCD", 42L, "alice-token");
+
+        assertThat(response.alive()).isFalse();
+    }
+
+    @Test
+    void getRole_revealsVoteDeathImmediately() {
+        Room room = room(6);
+        setId(room, 1L);
+        room.setPhase(GamePhase.NIGHT_START);
+        Player player = new Player(room, "ALICE", "alice-token");
+        setId(player, 42L);
+        player.kill();
+
+        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
+
+        PlayerRoleResponse response = playerService().getRole("ABCD", 42L, "alice-token");
+
+        assertThat(response.alive()).isFalse();
     }
 
     @Test

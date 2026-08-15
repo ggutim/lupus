@@ -157,7 +157,7 @@ class PlayerControllerTest {
     @Test
     void getRole_returnsRoleForValidToken() {
         when(playerService.getRole(eq("ABCD"), eq(42L), eq("player-token")))
-                .thenReturn(new PlayerRoleResponse(Role.WEREWOLF));
+                .thenReturn(new PlayerRoleResponse(Role.WEREWOLF, true));
 
         mvc.get().uri("/api/rooms/ABCD/players/42/role")
                 .header("X-Player-Token", "player-token")
@@ -165,6 +165,19 @@ class PlayerControllerTest {
                 .hasStatusOk()
                 .bodyJson()
                 .extractingPath("$.role").isEqualTo("WEREWOLF");
+    }
+
+    @Test
+    void getRole_returnsAliveFalseWhenPlayerIsDead() {
+        when(playerService.getRole(eq("ABCD"), eq(42L), eq("player-token")))
+                .thenReturn(new PlayerRoleResponse(Role.VILLAGER, false));
+
+        mvc.get().uri("/api/rooms/ABCD/players/42/role")
+                .header("X-Player-Token", "player-token")
+                .assertThat()
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.alive").isEqualTo(false);
     }
 
     @Test

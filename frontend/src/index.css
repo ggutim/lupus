@@ -746,6 +746,20 @@ input[type='number']:focus {
   color: var(--ink-soft);
 }
 
+.role-reveal-dead {
+  background: var(--wood-dark);
+  border-color: var(--wood-darkest);
+}
+
+.role-reveal-dead .role-reveal-icon {
+  color: var(--parchment-shadow);
+}
+
+.role-reveal-dead .role-reveal-label,
+.role-reveal-dead .role-reveal-description {
+  color: var(--parchment-light);
+}
+
 /* ---------- Game card deck ---------- */
 
 @keyframes game-card-in {

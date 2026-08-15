@@ -98,7 +98,12 @@ export async function joinRoom(code: string, nickname: string): Promise<JoinRoom
   return response.json()
 }
 
-export async function getPlayerRole(code: string, playerId: number, playerToken: string): Promise<Role> {
+export interface PlayerRoleState {
+  role: Role
+  alive: boolean
+}
+
+export async function getPlayerRole(code: string, playerId: number, playerToken: string): Promise<PlayerRoleState> {
   const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/players/${playerId}/role`, {
     headers: { 'X-Player-Token': playerToken },
   })
@@ -107,8 +112,7 @@ export async function getPlayerRole(code: string, playerId: number, playerToken:
     await handleErrorResponse(response, 'Impossibile recuperare il tuo ruolo.')
   }
 
-  const body = await response.json()
-  return body.role
+  return response.json()
 }
 
 export async function kickPlayer(code: string, playerId: number, masterToken: string): Promise<void> {
