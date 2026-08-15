@@ -11,6 +11,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock:ro
 
   backend:
+    image: ghcr.io/ggutim/lupus-backend:${IMAGE_TAG:-latest}
     build:
       context: ./backend
     environment:
@@ -22,6 +23,7 @@ services:
       - traefik.http.services.backend.loadbalancer.server.port=8080
 
   frontend:
+    image: ghcr.io/ggutim/lupus-frontend:${IMAGE_TAG:-latest}
     build:
       context: ./frontend
       args:
