@@ -828,6 +828,35 @@ input[type='number']:focus {
   color: var(--parchment-light);
 }
 
+.role-reveal-toggle {
+  all: unset;
+  display: flex;
+  justify-content: center;
+  width: 100%;
+  cursor: pointer;
+}
+
+.role-reveal-toggle:hover .role-reveal {
+  filter: brightness(1.04);
+}
+
+.role-reveal-toggle:active .role-reveal {
+  transform: translateY(1px);
+}
+
+.role-reveal-facedown {
+  background: linear-gradient(180deg, var(--wood-light), var(--wood) 55%, var(--wood-dark));
+  border-color: var(--wood-darkest);
+}
+
+.role-reveal-facedown .role-reveal-icon {
+  color: var(--parchment-shadow);
+}
+
+.role-reveal-facedown .role-reveal-label {
+  color: var(--parchment-light);
+}
+
 /* ---------- Game card deck ---------- */
 
 @keyframes game-card-in {

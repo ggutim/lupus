@@ -6,7 +6,7 @@ import { subscribeToGame } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
 import VillageOverviewDialog from '../components/VillageOverviewDialog'
 import { useDialog } from '../components/useDialog'
-import { PriestIcon, SkullIcon, VillagerIcon, WerewolfIcon } from '../components/icons'
+import { MeepleIcon, PriestIcon, SkullIcon, VillagerIcon, WerewolfIcon } from '../components/icons'
 import { ROLE_LABELS } from '../roleLabels'
 
 const ROLE_INFO: Record<Role, { description: string; icon: ReactNode }> = {
@@ -33,6 +33,7 @@ function PlayerRolePage() {
   const [status, setStatus] = useState<PlayerRoleState | null>(null)
   const [village, setVillage] = useState<VillagePlayer[]>([])
   const [villageOpen, setVillageOpen] = useState(false)
+  const [revealed, setRevealed] = useState(false)
 
   const refresh = useCallback(() => {
     if (!code) return
@@ -109,13 +110,36 @@ function PlayerRolePage() {
       <h1>Il tuo ruolo</h1>
       {nickname && <p>Ciao {nickname}!</p>}
 
-      <div className="role-reveal">
-        <div className="role-reveal-icon">{info.icon}</div>
-        <h2 className="role-reveal-label">{ROLE_LABELS[status.role]}</h2>
-        <p className="role-reveal-description">{info.description}</p>
-      </div>
+      <button
+        type="button"
+        className="role-reveal-toggle"
+        onClick={() => setRevealed((prev) => !prev)}
+        aria-pressed={revealed}
+      >
+        {revealed ? (
+          <div className="role-reveal">
+            <div className="role-reveal-icon">{info.icon}</div>
+            <h2 className="role-reveal-label">{ROLE_LABELS[status.role]}</h2>
+            <p className="role-reveal-description">{info.description}</p>
+          </div>
+        ) : (
+          <div className="role-reveal role-reveal-facedown">
+            <div className="role-reveal-icon">
+              <MeepleIcon />
+            </div>
+            <h2 className="role-reveal-label">Ruolo nascosto</h2>
+          </div>
+        )}
+      </button>
 
-      <p className="role-reveal-hint">Non mostrare lo schermo agli altri giocatori.</p>
+      {revealed ? (
+        <>
+          <p className="role-reveal-hint">Tocca di nuovo per nascondere il ruolo.</p>
+          <p className="role-reveal-hint">Non mostrare lo schermo agli altri giocatori.</p>
+        </>
+      ) : (
+        <p className="role-reveal-hint">Tocca per scoprire il tuo ruolo.</p>
+      )}
 
       {villageButton}
       <VillageOverviewDialog open={villageOpen} onClose={() => setVillageOpen(false)} players={village} />
