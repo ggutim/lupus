@@ -1,25 +1,24 @@
 import { useCallback, useEffect, useState, type ReactNode } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
-import { ApiError, getPlayerRole, type PlayerRoleState, type Role } from '../api/rooms'
+import { ApiError, getPlayerRole, getVillageOverview, type PlayerRoleState, type Role, type VillagePlayer } from '../api/rooms'
 import { getPlayerToken } from '../api/playerToken'
 import { subscribeToGame } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
+import VillageOverviewDialog from '../components/VillageOverviewDialog'
 import { useDialog } from '../components/useDialog'
 import { PriestIcon, SkullIcon, VillagerIcon, WerewolfIcon } from '../components/icons'
+import { ROLE_LABELS } from '../roleLabels'
 
-const ROLE_INFO: Record<Role, { label: string; description: string; icon: ReactNode }> = {
+const ROLE_INFO: Record<Role, { description: string; icon: ReactNode }> = {
   WEREWOLF: {
-    label: 'Lupo mannaro',
     description: 'Ogni notte, insieme agli altri lupi, scegli in silenzio chi sbranare.',
     icon: <WerewolfIcon />,
   },
   PRIEST: {
-    label: 'Sacerdote',
     description: 'Ogni notte puoi scoprire se un giocatore è buono o malvagio.',
     icon: <PriestIcon />,
   },
   VILLAGER: {
-    label: 'Contadino',
     description: 'Non hai poteri speciali: osserva, discuti e vota con attenzione.',
     icon: <VillagerIcon />,
   },
@@ -32,6 +31,8 @@ function PlayerRolePage() {
   const nickname = (location.state as { nickname?: string } | null)?.nickname
   const { showAlert } = useDialog()
   const [status, setStatus] = useState<PlayerRoleState | null>(null)
+  const [village, setVillage] = useState<VillagePlayer[]>([])
+  const [villageOpen, setVillageOpen] = useState(false)
 
   const refresh = useCallback(() => {
     if (!code) return
@@ -54,6 +55,8 @@ function PlayerRolePage() {
           }).then(() => navigate('/'))
         }
       })
+
+    getVillageOverview(code).then(setVillage).catch(() => {})
   }, [code, navigate, showAlert])
 
   useEffect(() => {
@@ -73,6 +76,12 @@ function PlayerRolePage() {
     )
   }
 
+  const villageButton = (
+    <button type="button" className="button" onClick={() => setVillageOpen(true)}>
+      Villaggio
+    </button>
+  )
+
   if (!status.alive) {
     return (
       <BoardPanel>
@@ -86,6 +95,9 @@ function PlayerRolePage() {
           <h2 className="role-reveal-label">Sei morto!</h2>
           <p className="role-reveal-description">Resta in silenzio e osserva come andrà a finire la partita.</p>
         </div>
+
+        {villageButton}
+        <VillageOverviewDialog open={villageOpen} onClose={() => setVillageOpen(false)} players={village} />
       </BoardPanel>
     )
   }
@@ -99,11 +111,14 @@ function PlayerRolePage() {
 
       <div className="role-reveal">
         <div className="role-reveal-icon">{info.icon}</div>
-        <h2 className="role-reveal-label">{info.label}</h2>
+        <h2 className="role-reveal-label">{ROLE_LABELS[status.role]}</h2>
         <p className="role-reveal-description">{info.description}</p>
       </div>
 
       <p className="role-reveal-hint">Non mostrare lo schermo agli altri giocatori.</p>
+
+      {villageButton}
+      <VillageOverviewDialog open={villageOpen} onClose={() => setVillageOpen(false)} players={village} />
     </BoardPanel>
   )
 }

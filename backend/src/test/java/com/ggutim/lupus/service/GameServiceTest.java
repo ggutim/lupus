@@ -7,9 +7,12 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.when;
 
 import com.ggutim.lupus.dto.MasterGameStateResponse;
+import com.ggutim.lupus.dto.PlayerResponse;
+import com.ggutim.lupus.dto.VillageOverviewResponse;
 import com.ggutim.lupus.exception.InvalidGamePhaseException;
 import com.ggutim.lupus.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.exception.PlayerNotFoundException;
+import com.ggutim.lupus.exception.RoomNotFoundException;
 import com.ggutim.lupus.model.Alignment;
 import com.ggutim.lupus.model.GameMode;
 import com.ggutim.lupus.model.GamePhase;
@@ -150,6 +153,46 @@ class GameServiceTest {
         assertThat(state.phase()).isEqualTo(GamePhase.ROLES_ASSIGNED);
         assertThat(state.players()).hasSize(2);
         assertThat(state.players().get(0).role()).isEqualTo(Role.WEREWOLF);
+    }
+
+    // ---------- getVillageOverview ----------
+
+    @Test
+    void getVillageOverview_rejectsUnknownCode() {
+        when(roomRepository.findByCode(CODE)).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> gameService().getVillageOverview(CODE))
+                .isInstanceOf(RoomNotFoundException.class);
+    }
+
+    @Test
+    void getVillageOverview_hidesOvernightDeathDuringMorningReveal() {
+        Room room = room(4, 1, 0);
+        room.start();
+        room.setPhase(GamePhase.MORNING_REVEAL);
+        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
+        Player victim = player(room, "VILL", Role.VILLAGER, false);
+        when(roomRepository.findByCode(CODE)).thenReturn(Optional.of(room));
+        mockPersistence(room, List.of(wolf, victim));
+
+        VillageOverviewResponse overview = gameService().getVillageOverview(CODE);
+
+        assertThat(overview.players()).extracting(PlayerResponse::alive).containsExactly(true, true);
+    }
+
+    @Test
+    void getVillageOverview_revealsDeathOnceDiscussionStarts() {
+        Room room = room(4, 1, 0);
+        room.start();
+        room.setPhase(GamePhase.DISCUSSION);
+        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
+        Player victim = player(room, "VILL", Role.VILLAGER, false);
+        when(roomRepository.findByCode(CODE)).thenReturn(Optional.of(room));
+        mockPersistence(room, List.of(wolf, victim));
+
+        VillageOverviewResponse overview = gameService().getVillageOverview(CODE);
+
+        assertThat(overview.players()).extracting(PlayerResponse::alive).containsExactly(true, false);
     }
 
     // ---------- advancePhase: basic narration chain ----------

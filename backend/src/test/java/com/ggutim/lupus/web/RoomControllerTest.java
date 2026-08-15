@@ -7,8 +7,10 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ggutim.lupus.dto.GameRulesResponse;
+import com.ggutim.lupus.dto.PlayerResponse;
 import com.ggutim.lupus.dto.RoomResponse;
 import com.ggutim.lupus.dto.RoomStateMessage;
+import com.ggutim.lupus.dto.VillageOverviewResponse;
 import com.ggutim.lupus.exception.InvalidRulesetException;
 import com.ggutim.lupus.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.exception.NotEnoughPlayersException;
@@ -17,6 +19,7 @@ import com.ggutim.lupus.exception.RoomNotFoundException;
 import com.ggutim.lupus.model.GameMode;
 import com.ggutim.lupus.model.Role;
 import com.ggutim.lupus.model.RoomStatus;
+import com.ggutim.lupus.service.GameService;
 import com.ggutim.lupus.service.PlayerService;
 import com.ggutim.lupus.service.RoomService;
 import java.util.List;
@@ -41,6 +44,9 @@ class RoomControllerTest {
 
     @MockitoBean
     private PlayerService playerService;
+
+    @MockitoBean
+    private GameService gameService;
 
     @Test
     void createRoom_returnsCreatedRoomWithMasterToken() {
@@ -153,6 +159,28 @@ class RoomControllerTest {
         mvc.get().uri("/api/rooms/ABCD")
                 .assertThat()
                 .hasStatus(403);
+    }
+
+    @Test
+    void getVillageOverview_returnsRosterWithoutRoles() {
+        VillageOverviewResponse overview = new VillageOverviewResponse(
+                List.of(new PlayerResponse(1L, "ALICE", true), new PlayerResponse(2L, "BOB", false)));
+        when(gameService.getVillageOverview("ABCD")).thenReturn(overview);
+
+        mvc.get().uri("/api/rooms/abcd/village")
+                .assertThat()
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.players[1].alive").isEqualTo(false);
+    }
+
+    @Test
+    void getVillageOverview_returnsNotFoundForUnknownCode() {
+        when(gameService.getVillageOverview("ZZZZ")).thenThrow(new RoomNotFoundException("ZZZZ"));
+
+        mvc.get().uri("/api/rooms/ZZZZ/village")
+                .assertThat()
+                .hasStatus(404);
     }
 
     @Test

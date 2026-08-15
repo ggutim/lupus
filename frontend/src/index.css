@@ -708,6 +708,74 @@ input[type='number']:focus {
   flex: 1;
 }
 
+/* ---------- Village overview ---------- */
+
+.village-overview-box {
+  max-width: 420px;
+  align-items: stretch;
+  text-align: left;
+}
+
+.village-overview-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  width: 100%;
+  max-height: 50vh;
+  overflow-y: auto;
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.village-overview-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 10px 14px;
+  background: var(--parchment-light);
+  border: 2px solid var(--wood-light);
+  border-radius: 6px;
+}
+
+.village-overview-row.is-dead {
+  background: var(--wood-dark);
+  border-color: var(--wood-darkest);
+  color: var(--parchment-light);
+}
+
+.village-overview-name {
+  font-weight: 600;
+}
+
+.village-overview-meta {
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.village-overview-role {
+  font-size: 0.85rem;
+  font-style: italic;
+  color: var(--ink-soft);
+}
+
+.village-overview-row.is-dead .village-overview-role {
+  color: var(--parchment-shadow);
+}
+
+.village-overview-status {
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--ink-soft);
+}
+
+.village-overview-row.is-dead .village-overview-status {
+  color: var(--parchment-shadow);
+}
+
 /* ---------- Role reveal ---------- */
 
 .role-reveal {

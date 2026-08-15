@@ -4,6 +4,8 @@ import com.ggutim.lupus.dto.CreateRoomRequest;
 import com.ggutim.lupus.dto.GameRulesResponse;
 import com.ggutim.lupus.dto.RoomResponse;
 import com.ggutim.lupus.dto.RoomStateMessage;
+import com.ggutim.lupus.dto.VillageOverviewResponse;
+import com.ggutim.lupus.service.GameService;
 import com.ggutim.lupus.service.PlayerService;
 import com.ggutim.lupus.service.RoomService;
 import jakarta.validation.Valid;
@@ -23,10 +25,12 @@ public class RoomController {
 
     private final RoomService roomService;
     private final PlayerService playerService;
+    private final GameService gameService;
 
-    public RoomController(RoomService roomService, PlayerService playerService) {
+    public RoomController(RoomService roomService, PlayerService playerService, GameService gameService) {
         this.roomService = roomService;
         this.playerService = playerService;
+        this.gameService = gameService;
     }
 
     @PostMapping
@@ -43,6 +47,11 @@ public class RoomController {
     public ResponseEntity<RoomStateMessage> getRoom(@PathVariable String code,
                                                      @RequestHeader(value = "X-Master-Token", required = false) String masterToken) {
         return ResponseEntity.ok(roomService.getRoomState(code, masterToken));
+    }
+
+    @GetMapping("/{code}/village")
+    public ResponseEntity<VillageOverviewResponse> getVillageOverview(@PathVariable String code) {
+        return ResponseEntity.ok(gameService.getVillageOverview(code.toUpperCase()));
     }
 
     @PostMapping("/{code}/start")

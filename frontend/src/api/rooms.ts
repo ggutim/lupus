@@ -103,6 +103,23 @@ export interface PlayerRoleState {
   alive: boolean
 }
 
+export interface VillagePlayer {
+  id: number
+  nickname: string
+  alive: boolean
+}
+
+export async function getVillageOverview(code: string): Promise<VillagePlayer[]> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/village`)
+
+  if (!response.ok) {
+    await handleErrorResponse(response, 'Impossibile recuperare lo stato del villaggio.')
+  }
+
+  const body = await response.json()
+  return body.players
+}
+
 export async function getPlayerRole(code: string, playerId: number, playerToken: string): Promise<PlayerRoleState> {
   const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/players/${playerId}/role`, {
     headers: { 'X-Player-Token': playerToken },

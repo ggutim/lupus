@@ -14,6 +14,7 @@ import { ApiError } from '../api/rooms'
 import { getMasterToken } from '../api/masterToken'
 import { subscribeToGame } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
+import VillageOverviewDialog from '../components/VillageOverviewDialog'
 import { useDialog } from '../components/useDialog'
 import { EyeIcon, MoonIcon, PriestIcon, SkullIcon, SunIcon, WerewolfIcon } from '../components/icons'
 import type { ReactNode } from 'react'
@@ -131,6 +132,7 @@ function MasterGamePage() {
 
   const [state, setState] = useState<MasterGameState | null>(null)
   const [busy, setBusy] = useState(false)
+  const [villageOpen, setVillageOpen] = useState(false)
 
   const refresh = useCallback(() => {
     if (!code || !masterToken) return
@@ -211,6 +213,20 @@ function MasterGamePage() {
     <BoardPanel>
       <h1>Partita in corso</h1>
       <p className="game-round">Round {state.roundNumber}</p>
+
+      <button type="button" className="button" onClick={() => setVillageOpen(true)}>
+        Villaggio
+      </button>
+      <VillageOverviewDialog
+        open={villageOpen}
+        onClose={() => setVillageOpen(false)}
+        players={state.players.map((player) => ({
+          id: player.id,
+          nickname: player.nickname,
+          alive: player.alive,
+          role: player.role,
+        }))}
+      />
 
       <div className="game-card">
         <div className="game-card-icon">{card.icon}</div>

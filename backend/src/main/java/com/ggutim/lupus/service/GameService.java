@@ -3,9 +3,12 @@ package com.ggutim.lupus.service;
 import com.ggutim.lupus.dto.GameUpdatedMessage;
 import com.ggutim.lupus.dto.MasterGameStateResponse;
 import com.ggutim.lupus.dto.MasterPlayerView;
+import com.ggutim.lupus.dto.PlayerResponse;
+import com.ggutim.lupus.dto.VillageOverviewResponse;
 import com.ggutim.lupus.exception.InvalidGamePhaseException;
 import com.ggutim.lupus.exception.InvalidRulesetException;
 import com.ggutim.lupus.exception.PlayerNotFoundException;
+import com.ggutim.lupus.exception.RoomNotFoundException;
 import com.ggutim.lupus.model.Alignment;
 import com.ggutim.lupus.model.GamePhase;
 import com.ggutim.lupus.model.Player;
@@ -65,6 +68,23 @@ public class GameService {
         Room room = roomService.findRoomForMaster(code, masterToken);
         ensureGameStarted(room);
         return buildMasterGameState(room);
+    }
+
+    /**
+     * The public village roster (nicknames and alive/dead status, no
+     * roles) visible to any player or the master. Uses the same
+     * MORNING_REVEAL-delayed visibility as {@link PlayerResponse#visibleDuring},
+     * so a player checking the overview can't spoil the master's reveal.
+     */
+    public VillageOverviewResponse getVillageOverview(String code) {
+        Room room = roomRepository.findByCode(code)
+                .orElseThrow(() -> new RoomNotFoundException(code));
+
+        List<PlayerResponse> players = playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId()).stream()
+                .map(player -> PlayerResponse.visibleDuring(player, room.getPhase()))
+                .toList();
+
+        return new VillageOverviewResponse(players);
     }
 
     @Transactional
