@@ -20,3 +20,4 @@
 | 16 | New neutral role: "apprentice"                                                                              | BACKLOG |
 | 17 | New neutral role: "thief"                                                                                   | BACKLOG |
 | 18 | New neutral role: "doppleganger"                                                                            | BACKLOG |
+| 19 | Bug. As is, if a role gets eliminated, is not called during the night                                       | BACKLOG |
