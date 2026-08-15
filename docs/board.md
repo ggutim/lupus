@@ -2,7 +2,7 @@
 
 | ID | Description                                                                                                 | Status  |
 |----|-------------------------------------------------------------------------------------------------------------|---------|
-| 1  | Expose configs (e.g. min/max players) via public endpoint (e.g. GET /api/rooms/rules) for frontend to fetch | BACKLOG |
+| 1  | Expose configs (e.g. min/max players) via public endpoint (e.g. GET /api/rooms/rules) for frontend to fetch | DONE    |
 | 2  | Implement new screen when player dies                                                                       | BACKLOG |
 | 3  | Implement village overview for both master (see all roles) and players (see who died and who's alive)       | BACKLOG |
 | 4  | When chosing who to kill, werewolves choiche must exclude werewolves                                        | BACKLOG |

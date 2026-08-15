@@ -1,6 +1,7 @@
 package com.ggutim.lupus.web;
 
 import com.ggutim.lupus.dto.CreateRoomRequest;
+import com.ggutim.lupus.dto.GameRulesResponse;
 import com.ggutim.lupus.dto.RoomResponse;
 import com.ggutim.lupus.dto.RoomStateMessage;
 import com.ggutim.lupus.service.PlayerService;
@@ -31,6 +32,11 @@ public class RoomController {
     @PostMapping
     public ResponseEntity<RoomResponse> createRoom(@Valid @RequestBody CreateRoomRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(roomService.createRoom(request));
+    }
+
+    @GetMapping("/rules")
+    public ResponseEntity<GameRulesResponse> getRules() {
+        return ResponseEntity.ok(roomService.getGameRules());
     }
 
     @GetMapping("/{code}")

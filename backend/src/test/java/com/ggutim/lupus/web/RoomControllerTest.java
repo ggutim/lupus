@@ -6,6 +6,7 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ggutim.lupus.dto.GameRulesResponse;
 import com.ggutim.lupus.dto.RoomResponse;
 import com.ggutim.lupus.dto.RoomStateMessage;
 import com.ggutim.lupus.exception.InvalidRulesetException;
@@ -97,6 +98,17 @@ class RoomControllerTest {
                         """)
                 .assertThat()
                 .hasStatus(400);
+    }
+
+    @Test
+    void getRules_returnsConfiguredPlayerBounds() {
+        when(roomService.getGameRules()).thenReturn(new GameRulesResponse(4, 30));
+
+        mvc.get().uri("/api/rooms/rules")
+                .assertThat()
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.minPlayers").isEqualTo(4);
     }
 
     @Test

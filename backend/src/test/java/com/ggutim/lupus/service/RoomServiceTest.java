@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 
 import com.ggutim.lupus.config.GameRules;
 import com.ggutim.lupus.dto.CreateRoomRequest;
+import com.ggutim.lupus.dto.GameRulesResponse;
 import com.ggutim.lupus.dto.RoomResponse;
 import com.ggutim.lupus.dto.RoomStateMessage;
 import com.ggutim.lupus.exception.InvalidRulesetException;
@@ -45,6 +46,19 @@ class RoomServiceTest {
     private Room room(String code, String masterToken, int playerCount) {
         return new Room(code, masterToken, GameMode.CLASSIC, playerCount, Map.of(
                 Role.WEREWOLF, 1, Role.PRIEST, 0, Role.VILLAGER, playerCount - 1));
+    }
+
+    @Test
+    void getGameRules_returnsConfiguredPlayerBounds() {
+        GameRules gameRules = new GameRules();
+        gameRules.setMinPlayers(5);
+        gameRules.setMaxPlayers(20);
+        RoomService roomService = new RoomService(roomRepository, playerRepository, gameRules);
+
+        GameRulesResponse rules = roomService.getGameRules();
+
+        assertThat(rules.minPlayers()).isEqualTo(5);
+        assertThat(rules.maxPlayers()).isEqualTo(20);
     }
 
     @Test

@@ -2,6 +2,7 @@ package com.ggutim.lupus.service;
 
 import com.ggutim.lupus.config.GameRules;
 import com.ggutim.lupus.dto.CreateRoomRequest;
+import com.ggutim.lupus.dto.GameRulesResponse;
 import com.ggutim.lupus.dto.PlayerResponse;
 import com.ggutim.lupus.dto.RoomResponse;
 import com.ggutim.lupus.dto.RoomStateMessage;
@@ -45,6 +46,10 @@ public class RoomService {
         Room room = new Room(code, masterToken, request.gameMode(), request.playerCount(), roleCounts);
         Room saved = roomRepository.save(room);
         return RoomResponse.from(saved, masterToken);
+    }
+
+    public GameRulesResponse getGameRules() {
+        return GameRulesResponse.from(gameRules);
     }
 
     public RoomStateMessage getRoomState(String code, String masterToken) {
