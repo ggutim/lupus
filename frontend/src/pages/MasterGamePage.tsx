@@ -124,6 +124,14 @@ function pendingSelectionId(state: MasterGameState): number | null {
   }
 }
 
+function selectablePlayers(state: MasterGameState): MasterPlayerView[] {
+  const alive = state.players.filter((player) => player.alive)
+  if (state.phase === 'WEREWOLVES_SELECT_VICTIM') {
+    return alive.filter((player) => player.role !== 'WEREWOLF')
+  }
+  return alive
+}
+
 function MasterGamePage() {
   const { code } = useParams<{ code: string }>()
   const navigate = useNavigate()
@@ -236,21 +244,17 @@ function MasterGamePage() {
 
       {isSelectionPhase && (
         <div className="player-tokens game-selection-grid">
-          {state.players
-            .filter((player) => player.alive)
-            .map((player) => (
-              <button
-                key={player.id}
-                type="button"
-                className={
-                  'game-selectable-token' + (selectedId === player.id ? ' is-selected' : '')
-                }
-                onClick={() => handleSelect(player.id)}
-                disabled={busy}
-              >
-                <span className="player-token-name">{player.nickname}</span>
-              </button>
-            ))}
+          {selectablePlayers(state).map((player) => (
+            <button
+              key={player.id}
+              type="button"
+              className={'game-selectable-token' + (selectedId === player.id ? ' is-selected' : '')}
+              onClick={() => handleSelect(player.id)}
+              disabled={busy}
+            >
+              <span className="player-token-name">{player.nickname}</span>
+            </button>
+          ))}
         </div>
       )}
 

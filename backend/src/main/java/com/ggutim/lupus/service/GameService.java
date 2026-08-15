@@ -93,6 +93,9 @@ public class GameService {
         requirePhase(room, GamePhase.WEREWOLVES_SELECT_VICTIM);
 
         Player target = requireAlivePlayerInRoom(room, targetId);
+        if (target.getRole() == Role.WEREWOLF) {
+            throw new InvalidGamePhaseException("Werewolves cannot select another werewolf as their victim");
+        }
         room.setPendingWerewolfVictimId(target.getId());
         roomRepository.save(room);
 

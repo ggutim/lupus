@@ -370,6 +370,19 @@ class GameServiceTest {
     }
 
     @Test
+    void selectWerewolfVictim_rejectsAnotherWerewolfAsTarget() {
+        Room room = room(4, 2, 0);
+        room.start();
+        room.setPhase(GamePhase.WEREWOLVES_SELECT_VICTIM);
+        Player otherWolf = player(room, "WOLF2", Role.WEREWOLF, true);
+        mockMasterRoom(room);
+        when(playerRepository.findById(otherWolf.getId())).thenReturn(Optional.of(otherWolf));
+
+        assertThatThrownBy(() -> gameService().selectWerewolfVictim(CODE, MASTER_TOKEN, otherWolf.getId()))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
     void selectWerewolfVictim_rejectsUnknownPlayer() {
         Room room = room(4, 1, 0);
         room.start();
