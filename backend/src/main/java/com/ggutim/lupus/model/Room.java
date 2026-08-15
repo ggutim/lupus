@@ -60,14 +60,16 @@ public class Room {
     @Column(nullable = false)
     private int roundNumber = 1;
 
-    private Long pendingWerewolfVictimId;
-
-    private Long pendingPriestTargetId;
+    /**
+     * Which role's night turn is active, and which beat of it, while
+     * {@link #phase} is {@link GamePhase#NIGHT_ACTIONS}. Both null
+     * outside that phase.
+     */
+    @Enumerated(EnumType.STRING)
+    private Role currentNightRole;
 
     @Enumerated(EnumType.STRING)
-    private Alignment priestCheckResult;
-
-    private Long lastNightVictimId;
+    private NightStepKind currentNightStepKind;
 
     private Long pendingVoteVictimId;
 
@@ -145,36 +147,20 @@ public class Room {
         this.roundNumber = roundNumber;
     }
 
-    public Long getPendingWerewolfVictimId() {
-        return pendingWerewolfVictimId;
+    public Role getCurrentNightRole() {
+        return currentNightRole;
     }
 
-    public void setPendingWerewolfVictimId(Long pendingWerewolfVictimId) {
-        this.pendingWerewolfVictimId = pendingWerewolfVictimId;
+    public void setCurrentNightRole(Role currentNightRole) {
+        this.currentNightRole = currentNightRole;
     }
 
-    public Long getPendingPriestTargetId() {
-        return pendingPriestTargetId;
+    public NightStepKind getCurrentNightStepKind() {
+        return currentNightStepKind;
     }
 
-    public void setPendingPriestTargetId(Long pendingPriestTargetId) {
-        this.pendingPriestTargetId = pendingPriestTargetId;
-    }
-
-    public Alignment getPriestCheckResult() {
-        return priestCheckResult;
-    }
-
-    public void setPriestCheckResult(Alignment priestCheckResult) {
-        this.priestCheckResult = priestCheckResult;
-    }
-
-    public Long getLastNightVictimId() {
-        return lastNightVictimId;
-    }
-
-    public void setLastNightVictimId(Long lastNightVictimId) {
-        this.lastNightVictimId = lastNightVictimId;
+    public void setCurrentNightStepKind(NightStepKind currentNightStepKind) {
+        this.currentNightStepKind = currentNightStepKind;
     }
 
     public Long getPendingVoteVictimId() {

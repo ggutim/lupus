@@ -2,9 +2,11 @@ package com.ggutim.lupus.model;
 
 /**
  * A single step ("card") the master is guided through once a game
- * starts. Some phases are pure narration (the master just reads the
- * text and clicks next); others require the master to select a player
- * from the board before advancing.
+ * starts. This is the fixed skeleton that never varies by ruleset —
+ * the per-role night beats (which role wakes up, in what order) are
+ * data-driven via {@link Room#getCurrentNightRole()} and
+ * {@link NightStepKind}, not additional enum values here, so adding a
+ * role never means adding a phase.
  */
 public enum GamePhase {
 
@@ -14,17 +16,13 @@ public enum GamePhase {
     /** Night falls, the village goes to sleep. */
     NIGHT_START,
 
-    /** Narration: werewolves wake up and silently agree on a victim. */
-    WEREWOLVES_WAKE_UP,
-
-    /** Master selects who the werewolves killed. */
-    WEREWOLVES_SELECT_VICTIM,
-
-    /** Narration: the priest wakes up and picks someone to inspect. */
-    PRIEST_WAKE_UP,
-
-    /** Master selects who the priest inspects; reveals good/bad. */
-    PRIEST_SELECT_TARGET,
+    /**
+     * Walking through each configured role's night turn in order. See
+     * {@link Room#getCurrentNightRole()} and
+     * {@link Room#getCurrentNightStepKind()} for which role/beat is
+     * currently active.
+     */
+    NIGHT_ACTIONS,
 
     /** Village wakes up; announce who died overnight. */
     MORNING_REVEAL,

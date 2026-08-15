@@ -3,14 +3,13 @@ import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   advancePhase,
   getGameState,
-  selectPriestTarget,
+  selectNightTarget,
   selectVoteVictim,
-  selectWerewolfVictim,
-  type GamePhase,
+  type Alignment,
   type MasterGameState,
   type MasterPlayerView,
 } from '../api/game'
-import { ApiError } from '../api/rooms'
+import { ApiError, type Role } from '../api/rooms'
 import { getMasterToken } from '../api/masterToken'
 import { subscribeToGame } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
@@ -25,13 +24,69 @@ interface CardContent {
   body: ReactNode
 }
 
+interface NightRoleContent {
+  icon: ReactNode
+  wakeUpTitle: string
+  wakeUpBody: string
+  selectTitle: string
+  selectPrompt: string
+  /** Renders the immediate result once a target and result exist (e.g. the priest's alignment reveal). */
+  renderResult?: (targetName: string, result: Alignment) => ReactNode
+}
+
+/** Narration copy per role's night turn. Adding a role's night behavior means adding an entry here. */
+const NIGHT_ROLE_CONTENT: Partial<Record<Role, NightRoleContent>> = {
+  WEREWOLF: {
+    icon: <WerewolfIcon />,
+    wakeUpTitle: 'I lupi mannari si svegliano',
+    wakeUpBody: 'I lupi aprono gli occhi e decidono in silenzio chi sbranare.',
+    selectTitle: 'Chi hanno scelto i lupi?',
+    selectPrompt: 'Seleziona dalla tavola il giocatore scelto dai lupi mannari.',
+  },
+  PRIEST: {
+    icon: <PriestIcon />,
+    wakeUpTitle: 'Il sacerdote si sveglia',
+    wakeUpBody: 'Il sacerdote apre gli occhi e sceglie chi vedere.',
+    selectTitle: 'Chi vuole vedere il sacerdote?',
+    selectPrompt: 'Seleziona dalla tavola il giocatore scelto dal sacerdote.',
+    renderResult: (targetName, result) => (
+      <>
+        <p>
+          {targetName} è <strong>{result === 'EVIL' ? 'malvagio' : 'buono'}</strong>.
+        </p>
+        <p className="game-card-hint">Comunicalo in silenzio al sacerdote.</p>
+      </>
+    ),
+  },
+}
+
 function playerName(players: MasterPlayerView[], id: number | null): string {
   if (id === null) return '—'
   return players.find((player) => player.id === id)?.nickname ?? '—'
 }
 
+function buildNightActionsCard(state: MasterGameState): CardContent {
+  const { players, currentNightRole, currentNightStepKind, pendingNightActionTargetId, nightActionResult } = state
+  const content = currentNightRole ? NIGHT_ROLE_CONTENT[currentNightRole] : undefined
+
+  if (!currentNightRole || !content) {
+    return { icon: <MoonIcon />, title: 'Notte', body: 'Attendere…' }
+  }
+
+  if (currentNightStepKind === 'WAKE_UP') {
+    return { icon: content.icon, title: content.wakeUpTitle, body: content.wakeUpBody }
+  }
+
+  const body =
+    pendingNightActionTargetId && nightActionResult && content.renderResult
+      ? content.renderResult(playerName(players, pendingNightActionTargetId), nightActionResult)
+      : content.selectPrompt
+
+  return { icon: content.icon, title: content.selectTitle, body }
+}
+
 function buildCard(state: MasterGameState): CardContent {
-  const { phase, players, lastNightVictimId, priestCheckResult, pendingPriestTargetId, winner } = state
+  const { phase, players, lastNightVictimId, winner } = state
 
   switch (phase) {
     case 'ROLES_ASSIGNED':
@@ -46,40 +101,8 @@ function buildCard(state: MasterGameState): CardContent {
         title: 'Cala la notte',
         body: 'Il villaggio si addormenta. Tutti chiudano gli occhi.',
       }
-    case 'WEREWOLVES_WAKE_UP':
-      return {
-        icon: <WerewolfIcon />,
-        title: 'I lupi mannari si svegliano',
-        body: 'I lupi aprono gli occhi e decidono in silenzio chi sbranare.',
-      }
-    case 'WEREWOLVES_SELECT_VICTIM':
-      return {
-        icon: <WerewolfIcon />,
-        title: 'Chi hanno scelto i lupi?',
-        body: 'Seleziona dalla tavola il giocatore scelto dai lupi mannari.',
-      }
-    case 'PRIEST_WAKE_UP':
-      return {
-        icon: <PriestIcon />,
-        title: 'Il sacerdote si sveglia',
-        body: 'Il sacerdote apre gli occhi e sceglie chi vedere.',
-      }
-    case 'PRIEST_SELECT_TARGET':
-      return {
-        icon: <PriestIcon />,
-        title: 'Chi vuole vedere il sacerdote?',
-        body: pendingPriestTargetId ? (
-          <>
-            <p>
-              {playerName(players, pendingPriestTargetId)} è{' '}
-              <strong>{priestCheckResult === 'EVIL' ? 'malvagio' : 'buono'}</strong>.
-            </p>
-            <p className="game-card-hint">Comunicalo in silenzio al sacerdote.</p>
-          </>
-        ) : (
-          'Seleziona dalla tavola il giocatore scelto dal sacerdote.'
-        ),
-      }
+    case 'NIGHT_ACTIONS':
+      return buildNightActionsCard(state)
     case 'MORNING_REVEAL':
       return {
         icon: <SunIcon />,
@@ -109,24 +132,22 @@ function buildCard(state: MasterGameState): CardContent {
   }
 }
 
-const SELECTION_PHASES: GamePhase[] = ['WEREWOLVES_SELECT_VICTIM', 'PRIEST_SELECT_TARGET', 'VOTE_SELECT_TARGET']
-
-function pendingSelectionId(state: MasterGameState): number | null {
-  switch (state.phase) {
-    case 'WEREWOLVES_SELECT_VICTIM':
-      return state.pendingWerewolfVictimId
-    case 'PRIEST_SELECT_TARGET':
-      return state.pendingPriestTargetId
-    case 'VOTE_SELECT_TARGET':
-      return state.pendingVoteVictimId
-    default:
-      return null
-  }
+/**
+ * Whether a living player still holds {@code role}, excluding whoever
+ * the werewolves have already picked as this round's victim (that
+ * kill isn't applied until morning) — mirrors the backend's
+ * roleHasSelectableHolder so the "Avanti" button doesn't stay
+ * disabled waiting for a selection nobody can make.
+ */
+function roleHasSelectableHolder(state: MasterGameState, role: Role): boolean {
+  return state.players.some(
+    (player) => player.alive && player.id !== state.lastNightVictimId && player.role === role,
+  )
 }
 
 function selectablePlayers(state: MasterGameState): MasterPlayerView[] {
   const alive = state.players.filter((player) => player.alive)
-  if (state.phase === 'WEREWOLVES_SELECT_VICTIM') {
+  if (state.phase === 'NIGHT_ACTIONS' && state.currentNightRole === 'WEREWOLF') {
     return alive.filter((player) => player.role !== 'WEREWOLF')
   }
   return alive
@@ -182,20 +203,25 @@ function MasterGamePage() {
   }
 
   const card = buildCard(state)
-  const isSelectionPhase = SELECTION_PHASES.includes(state.phase)
-  const selectedId = pendingSelectionId(state)
+  const isNightSelectStep = state.phase === 'NIGHT_ACTIONS' && state.currentNightStepKind === 'SELECT'
   const isVotePhase = state.phase === 'VOTE_SELECT_TARGET'
-  const canAdvance = !isSelectionPhase || selectedId !== null || isVotePhase
+  const nightSelectionRequired =
+    isNightSelectStep && state.currentNightRole !== null && roleHasSelectableHolder(state, state.currentNightRole)
+  const showSelectionGrid = (isNightSelectStep && nightSelectionRequired) || isVotePhase
+  const selectedId = isNightSelectStep
+    ? state.pendingNightActionTargetId
+    : isVotePhase
+      ? state.pendingVoteVictimId
+      : null
+  const canAdvance = isVotePhase || !nightSelectionRequired || selectedId !== null
 
   const handleSelect = async (playerId: number) => {
     if (!code || !masterToken || busy) return
     setBusy(true)
     try {
-      if (state.phase === 'WEREWOLVES_SELECT_VICTIM') {
-        setState(await selectWerewolfVictim(code, masterToken, playerId))
-      } else if (state.phase === 'PRIEST_SELECT_TARGET') {
-        setState(await selectPriestTarget(code, masterToken, playerId))
-      } else if (state.phase === 'VOTE_SELECT_TARGET') {
+      if (isNightSelectStep) {
+        setState(await selectNightTarget(code, masterToken, playerId))
+      } else if (isVotePhase) {
         setState(await selectVoteVictim(code, masterToken, selectedId === playerId ? null : playerId))
       }
     } catch {
@@ -242,7 +268,7 @@ function MasterGamePage() {
         <div className="game-card-body">{card.body}</div>
       </div>
 
-      {isSelectionPhase && (
+      {showSelectionGrid && (
         <div className="player-tokens game-selection-grid">
           {selectablePlayers(state).map((player) => (
             <button

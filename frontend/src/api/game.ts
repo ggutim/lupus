@@ -3,14 +3,13 @@ import { ApiError, API_BASE_URL, type Role } from './rooms'
 export type GamePhase =
   | 'ROLES_ASSIGNED'
   | 'NIGHT_START'
-  | 'WEREWOLVES_WAKE_UP'
-  | 'WEREWOLVES_SELECT_VICTIM'
-  | 'PRIEST_WAKE_UP'
-  | 'PRIEST_SELECT_TARGET'
+  | 'NIGHT_ACTIONS'
   | 'MORNING_REVEAL'
   | 'DISCUSSION'
   | 'VOTE_SELECT_TARGET'
   | 'GAME_OVER'
+
+export type NightStepKind = 'WAKE_UP' | 'SELECT'
 
 export type Alignment = 'GOOD' | 'EVIL'
 
@@ -26,9 +25,10 @@ export interface MasterGameState {
   phase: GamePhase
   roundNumber: number
   players: MasterPlayerView[]
-  pendingWerewolfVictimId: number | null
-  pendingPriestTargetId: number | null
-  priestCheckResult: Alignment | null
+  currentNightRole: Role | null
+  currentNightStepKind: NightStepKind | null
+  pendingNightActionTargetId: number | null
+  nightActionResult: Alignment | null
   lastNightVictimId: number | null
   pendingVoteVictimId: number | null
   winner: Alignment | null
@@ -86,12 +86,8 @@ async function selectTarget(
   return response.json()
 }
 
-export function selectWerewolfVictim(code: string, masterToken: string, playerId: number): Promise<MasterGameState> {
-  return selectTarget('select-werewolf-victim', code, masterToken, playerId)
-}
-
-export function selectPriestTarget(code: string, masterToken: string, playerId: number): Promise<MasterGameState> {
-  return selectTarget('select-priest-target', code, masterToken, playerId)
+export function selectNightTarget(code: string, masterToken: string, playerId: number): Promise<MasterGameState> {
+  return selectTarget('select-night-target', code, masterToken, playerId)
 }
 
 export function selectVoteVictim(

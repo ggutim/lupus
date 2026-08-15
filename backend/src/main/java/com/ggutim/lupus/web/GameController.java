@@ -43,20 +43,12 @@ public class GameController {
         return ResponseEntity.ok(gameService.advancePhase(code.toUpperCase(), masterToken));
     }
 
-    @PostMapping("/select-werewolf-victim")
-    public ResponseEntity<MasterGameStateResponse> selectWerewolfVictim(
+    @PostMapping("/select-night-target")
+    public ResponseEntity<MasterGameStateResponse> selectNightTarget(
             @PathVariable String code,
             @RequestHeader(value = "X-Master-Token", required = false) String masterToken,
             @RequestBody SelectTargetRequest request) {
-        return ResponseEntity.ok(gameService.selectWerewolfVictim(code.toUpperCase(), masterToken, request.playerId()));
-    }
-
-    @PostMapping("/select-priest-target")
-    public ResponseEntity<MasterGameStateResponse> selectPriestTarget(
-            @PathVariable String code,
-            @RequestHeader(value = "X-Master-Token", required = false) String masterToken,
-            @RequestBody SelectTargetRequest request) {
-        return ResponseEntity.ok(gameService.selectPriestTarget(code.toUpperCase(), masterToken, request.playerId()));
+        return ResponseEntity.ok(gameService.selectNightTarget(code.toUpperCase(), masterToken, request.playerId()));
     }
 
     @PostMapping("/select-vote-victim")

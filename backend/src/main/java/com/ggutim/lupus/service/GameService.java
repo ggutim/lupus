@@ -11,15 +11,22 @@ import com.ggutim.lupus.exception.PlayerNotFoundException;
 import com.ggutim.lupus.exception.RoomNotFoundException;
 import com.ggutim.lupus.model.Alignment;
 import com.ggutim.lupus.model.GamePhase;
+import com.ggutim.lupus.model.NightAction;
+import com.ggutim.lupus.model.NightStepKind;
 import com.ggutim.lupus.model.Player;
 import com.ggutim.lupus.model.Role;
 import com.ggutim.lupus.model.Room;
 import com.ggutim.lupus.model.RoomStatus;
+import com.ggutim.lupus.repository.NightActionRepository;
 import com.ggutim.lupus.repository.PlayerRepository;
 import com.ggutim.lupus.repository.RoomRepository;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -30,21 +37,40 @@ import org.springframework.transaction.annotation.Transactional;
  * detection. Kept separate from {@link PlayerService} (pre-game
  * lobby: joining/kicking) and {@link RoomService} (room creation and
  * master-token validation), which this class depends on.
+ *
+ * <p>Which roles act at night, in what order, is data (see {@link
+ * #NIGHT_ORDER}, {@link NightActionEffect}, {@link WinConditionCheck}),
+ * not a phase enum value per role — a role with no living holder still
+ * gets its {@link NightStepKind#WAKE_UP}/{@link NightStepKind#SELECT}
+ * beats narrated, it just never requires a selection, so the table can
+ * never infer a role is gone from the master silently skipping it.
  */
 @Service
 public class GameService {
 
+    /** Narration order for roles with a night action. Adding a role's night turn means appending here. */
+    private static final List<Role> NIGHT_ORDER = List.of(Role.WEREWOLF, Role.PRIEST);
+
     private final RoomRepository roomRepository;
     private final PlayerRepository playerRepository;
+    private final NightActionRepository nightActionRepository;
     private final RoomService roomService;
     private final SimpMessagingTemplate messagingTemplate;
+    private final Map<Role, NightActionEffect> nightActionEffects;
+    private final List<WinConditionCheck> winConditionChecks;
 
-    public GameService(RoomRepository roomRepository, PlayerRepository playerRepository, RoomService roomService,
-                        SimpMessagingTemplate messagingTemplate) {
+    public GameService(RoomRepository roomRepository, PlayerRepository playerRepository,
+                        NightActionRepository nightActionRepository, RoomService roomService,
+                        SimpMessagingTemplate messagingTemplate, List<NightActionEffect> nightActionEffects,
+                        List<WinConditionCheck> winConditionChecks) {
         this.roomRepository = roomRepository;
         this.playerRepository = playerRepository;
+        this.nightActionRepository = nightActionRepository;
         this.roomService = roomService;
         this.messagingTemplate = messagingTemplate;
+        this.nightActionEffects = nightActionEffects.stream()
+                .collect(Collectors.toMap(NightActionEffect::role, Function.identity()));
+        this.winConditionChecks = winConditionChecks;
     }
 
     /**
@@ -87,31 +113,32 @@ public class GameService {
         return new VillageOverviewResponse(players);
     }
 
+    /**
+     * Records the master's choice of target for whichever role is
+     * currently active (see {@link Room#getCurrentNightRole()}), applies
+     * that role's immediate effect if it has one, and re-selecting simply
+     * overwrites the previous choice.
+     */
     @Transactional
-    public MasterGameStateResponse selectWerewolfVictim(String code, String masterToken, Long targetId) {
+    public MasterGameStateResponse selectNightTarget(String code, String masterToken, Long targetId) {
         Room room = roomService.findRoomForMaster(code, masterToken);
-        requirePhase(room, GamePhase.WEREWOLVES_SELECT_VICTIM);
+        requireNightSelectStep(room);
 
+        Role role = room.getCurrentNightRole();
         Player target = requireAlivePlayerInRoom(room, targetId);
-        if (target.getRole() == Role.WEREWOLF) {
+        if (role == Role.WEREWOLF && target.getRole() == Role.WEREWOLF) {
             throw new InvalidGamePhaseException("Werewolves cannot select another werewolf as their victim");
         }
-        room.setPendingWerewolfVictimId(target.getId());
-        roomRepository.save(room);
 
-        broadcastGameUpdated(room);
-        return buildMasterGameState(room);
-    }
+        NightAction action = currentNightAction(room, role)
+                .orElseGet(() -> new NightAction(room, room.getRoundNumber(), role));
+        action.setTargetPlayerId(target.getId());
 
-    @Transactional
-    public MasterGameStateResponse selectPriestTarget(String code, String masterToken, Long targetId) {
-        Room room = roomService.findRoomForMaster(code, masterToken);
-        requirePhase(room, GamePhase.PRIEST_SELECT_TARGET);
-
-        Player target = requireAlivePlayerInRoom(room, targetId);
-        room.setPendingPriestTargetId(target.getId());
-        room.setPriestCheckResult(target.getRole().getAlignment());
-        roomRepository.save(room);
+        NightActionEffect effect = nightActionEffects.get(role);
+        if (effect != null) {
+            effect.apply(target).ifPresent(action::setResultAlignment);
+        }
+        nightActionRepository.save(action);
 
         broadcastGameUpdated(room);
         return buildMasterGameState(room);
@@ -140,23 +167,11 @@ public class GameService {
         ensureGameStarted(room);
 
         switch (room.getPhase()) {
-            case ROLES_ASSIGNED -> enterPhase(room, GamePhase.NIGHT_START);
-            case NIGHT_START -> enterPhase(room, GamePhase.WEREWOLVES_WAKE_UP);
-            case WEREWOLVES_WAKE_UP -> enterPhase(room, GamePhase.WEREWOLVES_SELECT_VICTIM);
-            case WEREWOLVES_SELECT_VICTIM -> {
-                requireSelectionMade(room.getPendingWerewolfVictimId(),
-                        "Select who the werewolves killed before advancing");
-                boolean priestSurvives = hasAlivePriestExcluding(room, room.getPendingWerewolfVictimId());
-                enterPhase(room, priestSurvives ? GamePhase.PRIEST_WAKE_UP : GamePhase.MORNING_REVEAL);
-            }
-            case PRIEST_WAKE_UP -> enterPhase(room, GamePhase.PRIEST_SELECT_TARGET);
-            case PRIEST_SELECT_TARGET -> {
-                requireSelectionMade(room.getPendingPriestTargetId(),
-                        "Select who the priest inspects before advancing");
-                enterPhase(room, GamePhase.MORNING_REVEAL);
-            }
-            case MORNING_REVEAL -> enterPhase(room, GamePhase.DISCUSSION);
-            case DISCUSSION -> enterPhase(room, GamePhase.VOTE_SELECT_TARGET);
+            case ROLES_ASSIGNED -> room.setPhase(GamePhase.NIGHT_START);
+            case NIGHT_START -> beginNightActions(room);
+            case NIGHT_ACTIONS -> advanceNightActions(room);
+            case MORNING_REVEAL -> room.setPhase(GamePhase.DISCUSSION);
+            case DISCUSSION -> room.setPhase(GamePhase.VOTE_SELECT_TARGET);
             case VOTE_SELECT_TARGET -> resolveVoteAndAdvance(room);
             case GAME_OVER -> throw new InvalidGamePhaseException("The game has already ended");
         }
@@ -192,33 +207,64 @@ public class GameService {
         playerRepository.saveAll(shuffled);
     }
 
-    /**
-     * Applies phase-entry side effects and moves the room into the given
-     * phase. Resolving the night's werewolf kill happens here, when
-     * entering {@link GamePhase#MORNING_REVEAL}, so the reveal card
-     * always reflects the outcome of that night. If that kill ends the
-     * game, {@code phase} is overridden to {@link GamePhase#GAME_OVER}.
-     */
-    private void enterPhase(Room room, GamePhase phase) {
-        if (phase == GamePhase.MORNING_REVEAL) {
-            Long victimId = room.getPendingWerewolfVictimId();
-            if (victimId != null) {
-                Player victim = playerRepository.findById(victimId)
-                        .orElseThrow(() -> new PlayerNotFoundException(victimId));
-                victim.kill();
-                playerRepository.save(victim);
-            }
-            room.setLastNightVictimId(victimId);
-            room.setPendingWerewolfVictimId(null);
+    private void beginNightActions(Room room) {
+        Role firstRole = nextNightRole(room, null);
+        if (firstRole == null) {
+            resolveNightAndEnterMorningReveal(room);
+            return;
+        }
+        room.setPhase(GamePhase.NIGHT_ACTIONS);
+        room.setCurrentNightRole(firstRole);
+        room.setCurrentNightStepKind(NightStepKind.WAKE_UP);
+    }
 
-            Alignment winner = checkWinner(room);
-            if (winner != null) {
-                endGame(room, winner);
-                return;
-            }
+    private void advanceNightActions(Room room) {
+        if (room.getCurrentNightStepKind() == NightStepKind.WAKE_UP) {
+            room.setCurrentNightStepKind(NightStepKind.SELECT);
+            return;
         }
 
-        room.setPhase(phase);
+        Role finishedRole = room.getCurrentNightRole();
+        requireSelectionIfHolderSelectable(room, finishedRole);
+
+        Role nextRole = nextNightRole(room, finishedRole);
+        if (nextRole == null) {
+            resolveNightAndEnterMorningReveal(room);
+            return;
+        }
+        room.setCurrentNightRole(nextRole);
+        room.setCurrentNightStepKind(NightStepKind.WAKE_UP);
+    }
+
+    /**
+     * Resolves the night's werewolf kill (deferred until now so an
+     * already-chosen victim doesn't become ineligible for another
+     * role's selection earlier the same night — see {@link
+     * NightActionEffect}), checks for a winner, and enters
+     * MORNING_REVEAL if the game continues.
+     */
+    private void resolveNightAndEnterMorningReveal(Room room) {
+        Long victimId = currentNightAction(room, Role.WEREWOLF)
+                .map(NightAction::getTargetPlayerId)
+                .orElse(null);
+
+        if (victimId != null) {
+            Player victim = playerRepository.findById(victimId)
+                    .orElseThrow(() -> new PlayerNotFoundException(victimId));
+            victim.kill();
+            playerRepository.save(victim);
+        }
+
+        room.setCurrentNightRole(null);
+        room.setCurrentNightStepKind(null);
+
+        Alignment winner = checkWinCondition(room);
+        if (winner != null) {
+            endGame(room, winner);
+            return;
+        }
+
+        room.setPhase(GamePhase.MORNING_REVEAL);
     }
 
     private void resolveVoteAndAdvance(Room room) {
@@ -229,18 +275,14 @@ public class GameService {
             voted.kill();
             playerRepository.save(voted);
         }
-
         room.setPendingVoteVictimId(null);
-        room.setPendingPriestTargetId(null);
-        room.setPriestCheckResult(null);
-        room.setLastNightVictimId(null);
 
-        Alignment winner = checkWinner(room);
+        Alignment winner = checkWinCondition(room);
         if (winner != null) {
             endGame(room, winner);
         } else {
             room.setRoundNumber(room.getRoundNumber() + 1);
-            enterPhase(room, GamePhase.NIGHT_START);
+            room.setPhase(GamePhase.NIGHT_START);
         }
     }
 
@@ -249,32 +291,59 @@ public class GameService {
         room.setPhase(GamePhase.GAME_OVER);
     }
 
-    private Alignment checkWinner(Room room) {
-        List<Player> alivePlayers = playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId());
-
-        long aliveEvil = alivePlayers.stream()
-                .filter(player -> player.getRole().getAlignment() == Alignment.EVIL)
-                .count();
-        long aliveGood = alivePlayers.size() - aliveEvil;
-
-        if (aliveEvil == 0) {
-            return Alignment.GOOD;
-        }
-        if (aliveEvil >= aliveGood) {
-            return Alignment.EVIL;
+    private Alignment checkWinCondition(Room room) {
+        for (WinConditionCheck check : winConditionChecks) {
+            Optional<Alignment> result = check.check(room);
+            if (result.isPresent()) {
+                return result.get();
+            }
         }
         return null;
     }
 
+    /** The next configured role after {@code after} in {@link #NIGHT_ORDER}, or {@code null} if none remain. */
+    private Role nextNightRole(Room room, Role after) {
+        int startIndex = after == null ? 0 : NIGHT_ORDER.indexOf(after) + 1;
+        for (int i = startIndex; i < NIGHT_ORDER.size(); i++) {
+            Role candidate = NIGHT_ORDER.get(i);
+            if (room.getRoleCounts().getOrDefault(candidate, 0) > 0) {
+                return candidate;
+            }
+        }
+        return null;
+    }
+
+    private void requireSelectionIfHolderSelectable(Room room, Role role) {
+        if (!roleHasSelectableHolder(room, role)) {
+            return;
+        }
+        boolean hasTarget = currentNightAction(room, role)
+                .map(NightAction::getTargetPlayerId)
+                .isPresent();
+        if (!hasTarget) {
+            throw new InvalidGamePhaseException("Select " + role + "'s target before advancing");
+        }
+    }
+
     /**
-     * Whether a priest would still be alive after applying tonight's
-     * pending werewolf kill (which is only actually persisted when
-     * entering {@link GamePhase#MORNING_REVEAL}).
+     * Whether {@code role} has a living player who could plausibly act
+     * tonight — excluding whoever the werewolves have already chosen as
+     * this round's victim, even though that kill isn't applied until
+     * morning, so a role sharing the werewolves' target isn't asked to
+     * act on a technicality.
      */
-    private boolean hasAlivePriestExcluding(Room room, Long excludedPlayerId) {
+    private boolean roleHasSelectableHolder(Room room, Role role) {
+        Long pendingWerewolfVictimId = currentNightAction(room, Role.WEREWOLF)
+                .map(NightAction::getTargetPlayerId)
+                .orElse(null);
+
         return playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId()).stream()
-                .filter(player -> !player.getId().equals(excludedPlayerId))
-                .anyMatch(player -> player.getRole() == Role.PRIEST);
+                .filter(player -> !player.getId().equals(pendingWerewolfVictimId))
+                .anyMatch(player -> player.getRole() == role);
+    }
+
+    private Optional<NightAction> currentNightAction(Room room, Role role) {
+        return nightActionRepository.findByRoomIdAndRoundNumberAndRole(room.getId(), room.getRoundNumber(), role);
     }
 
     private Player requireAlivePlayerInRoom(Room room, Long playerId) {
@@ -296,9 +365,10 @@ public class GameService {
         }
     }
 
-    private void requireSelectionMade(Long pendingId, String message) {
-        if (pendingId == null) {
-            throw new InvalidGamePhaseException(message);
+    private void requireNightSelectStep(Room room) {
+        ensureGameStarted(room);
+        if (room.getPhase() != GamePhase.NIGHT_ACTIONS || room.getCurrentNightStepKind() != NightStepKind.SELECT) {
+            throw new InvalidGamePhaseException("Not currently selecting a night target");
         }
     }
 
@@ -313,15 +383,23 @@ public class GameService {
                 .map(MasterPlayerView::from)
                 .toList();
 
+        NightAction currentAction = room.getCurrentNightRole() == null ? null
+                : currentNightAction(room, room.getCurrentNightRole()).orElse(null);
+
+        Long lastNightVictimId = currentNightAction(room, Role.WEREWOLF)
+                .map(NightAction::getTargetPlayerId)
+                .orElse(null);
+
         return new MasterGameStateResponse(
                 room.getCode(),
                 room.getPhase(),
                 room.getRoundNumber(),
                 players,
-                room.getPendingWerewolfVictimId(),
-                room.getPendingPriestTargetId(),
-                room.getPriestCheckResult(),
-                room.getLastNightVictimId(),
+                room.getCurrentNightRole(),
+                room.getCurrentNightStepKind(),
+                currentAction == null ? null : currentAction.getTargetPlayerId(),
+                currentAction == null ? null : currentAction.getResultAlignment(),
+                lastNightVictimId,
                 room.getPendingVoteVictimId(),
                 room.getWinner());
     }

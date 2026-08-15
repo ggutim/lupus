@@ -33,7 +33,7 @@ class GameControllerTest {
     private GameService gameService;
 
     private MasterGameStateResponse state(GamePhase phase) {
-        return new MasterGameStateResponse("ABCD", phase, 1, List.of(), null, null, null, null, null, null);
+        return new MasterGameStateResponse("ABCD", phase, 1, List.of(), null, null, null, null, null, null, null);
     }
 
     @Test
@@ -82,11 +82,11 @@ class GameControllerTest {
     }
 
     @Test
-    void selectWerewolfVictim_returnsUpdatedState() {
-        when(gameService.selectWerewolfVictim(eq("ABCD"), eq("secret-token"), eq(7L)))
-                .thenReturn(state(GamePhase.WEREWOLVES_SELECT_VICTIM));
+    void selectNightTarget_returnsUpdatedState() {
+        when(gameService.selectNightTarget(eq("ABCD"), eq("secret-token"), eq(7L)))
+                .thenReturn(state(GamePhase.NIGHT_ACTIONS));
 
-        mvc.post().uri("/api/rooms/ABCD/game/select-werewolf-victim")
+        mvc.post().uri("/api/rooms/ABCD/game/select-night-target")
                 .header("X-Master-Token", "secret-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
@@ -95,15 +95,15 @@ class GameControllerTest {
                 .assertThat()
                 .hasStatusOk();
 
-        verify(gameService).selectWerewolfVictim(eq("ABCD"), eq("secret-token"), eq(7L));
+        verify(gameService).selectNightTarget(eq("ABCD"), eq("secret-token"), eq(7L));
     }
 
     @Test
-    void selectWerewolfVictim_returnsNotFoundForUnknownPlayer() {
+    void selectNightTarget_returnsNotFoundForUnknownPlayer() {
         doThrow(new PlayerNotFoundException(99L)).when(gameService)
-                .selectWerewolfVictim(eq("ABCD"), any(), eq(99L));
+                .selectNightTarget(eq("ABCD"), any(), eq(99L));
 
-        mvc.post().uri("/api/rooms/ABCD/game/select-werewolf-victim")
+        mvc.post().uri("/api/rooms/ABCD/game/select-night-target")
                 .header("X-Master-Token", "secret-token")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
@@ -111,21 +111,6 @@ class GameControllerTest {
                         """)
                 .assertThat()
                 .hasStatus(404);
-    }
-
-    @Test
-    void selectPriestTarget_returnsUpdatedState() {
-        when(gameService.selectPriestTarget(eq("ABCD"), eq("secret-token"), eq(3L)))
-                .thenReturn(state(GamePhase.PRIEST_SELECT_TARGET));
-
-        mvc.post().uri("/api/rooms/ABCD/game/select-priest-target")
-                .header("X-Master-Token", "secret-token")
-                .contentType(MediaType.APPLICATION_JSON)
-                .content("""
-                        {"playerId":3}
-                        """)
-                .assertThat()
-                .hasStatusOk();
     }
 
     @Test
