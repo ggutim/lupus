@@ -8,7 +8,7 @@
 | 4  | When chosing who to kill, werewolves choiche must exclude werewolves                                        | DONE    |
 | 5  | Narrate only mode, so player don't have to register to the session                                          | BACKLOG |
 | 6  | Implement afterlife mode, introducing "ghost" and "angel" roles                                             | BACKLOG |
-| 7  | Card given to a player should be hidden bu default. Discover only on tap                                    | DONE    |
+| 7  | Card given to a player should be hidden by default. Discover only on tap                                    | DONE    |
 | 8  | New evil role: "corrupted judge"                                                                            | BACKLOG |
 | 9  | New evil role: "killer"                                                                                     | BACKLOG |
 | 10 | New good role: "gravedigger"                                                                                | BACKLOG |
