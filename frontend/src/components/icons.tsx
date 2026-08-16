@@ -47,6 +47,23 @@ export function GravediggerIcon(props: IconProps) {
   )
 }
 
+export function IdiotIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path
+        d="M32 10 20 26h8l-14 14 12-2-8 14 14-8v6h8v-6l14 8-8-14 12 2-14-14h8Z"
+        fill="currentColor"
+      />
+      <circle cx="16" cy="26" r="3" fill="currentColor" />
+      <circle cx="48" cy="26" r="3" fill="currentColor" />
+      <circle cx="32" cy="8" r="3" fill="currentColor" />
+      <circle cx="27" cy="34" r="1.6" fill="#1a1108" />
+      <circle cx="37" cy="34" r="1.6" fill="#1a1108" />
+      <path d="M28 40q4 3 8 0" stroke="#1a1108" strokeWidth="2" strokeLinecap="round" fill="none" />
+    </svg>
+  )
+}
+
 export function VillagerIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>

@@ -8,7 +8,8 @@ public enum Role {
     VILLAGER(Alignment.GOOD),
     WEREWOLF(Alignment.EVIL),
     PRIEST(Alignment.GOOD),
-    GRAVEDIGGER(Alignment.GOOD);
+    GRAVEDIGGER(Alignment.GOOD),
+    IDIOT(Alignment.GOOD);
 
     private final Alignment alignment;
 

@@ -16,7 +16,7 @@
 | 12 | New good role: "hunter"                                                                                     | BACKLOG |
 | 13 | New good role: "cupid"                                                                                      | BACKLOG |
 | 14 | New good role: "little girl"                                                                                | BACKLOG |
-| 15 | New neutral role: "idiot"                                                                                   | BACKLOG |
+| 15 | New neutral role: "idiot"                                                                                   | DONE    |
 | 16 | New neutral role: "apprentice"                                                                              | BACKLOG |
 | 17 | New neutral role: "thief"                                                                                   | BACKLOG |
 | 18 | New neutral role: "doppleganger"                                                                            | BACKLOG |

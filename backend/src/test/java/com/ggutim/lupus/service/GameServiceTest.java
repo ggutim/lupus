@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -29,6 +30,8 @@ import com.ggutim.lupus.model.RoomStatus;
 import com.ggutim.lupus.repository.PlayerRepository;
 import com.ggutim.lupus.repository.RoomRepository;
 import com.ggutim.lupus.service.night.NightEngine;
+import com.ggutim.lupus.service.night.RoundEvent;
+import com.ggutim.lupus.service.night.SoloWinEvaluator;
 import com.ggutim.lupus.service.night.WinConditionEvaluator;
 import java.util.List;
 import java.util.Map;
@@ -44,10 +47,10 @@ import org.springframework.messaging.simp.SimpMessagingTemplate;
 /**
  * Unit tests for GameService's own orchestration — phase transitions,
  * delegation to its collaborators, and DTO assembly — with {@link
- * NightEngine}, {@link RoleAssigner} and {@link WinConditionEvaluator}
- * mocked out, same as {@code PlayerServiceTest} already mocks {@link
- * GameService} itself. Their own internals (real per-role wiring, win
- * math) are covered by their dedicated test classes.
+ * NightEngine}, {@link RoleAssigner}, {@link WinConditionEvaluator} and
+ * {@link SoloWinEvaluator} mocked out, same as {@code PlayerServiceTest}
+ * already mocks {@link GameService} itself. Their own internals (real
+ * per-role wiring, win math) are covered by their dedicated test classes.
  */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
@@ -77,11 +80,14 @@ class GameServiceTest {
     @Mock
     private WinConditionEvaluator winConditionEvaluator;
 
+    @Mock
+    private SoloWinEvaluator soloWinEvaluator;
+
     private long nextId = 1;
 
     private GameService gameService() {
         return new GameService(roomRepository, playerRepository, roomService, messagingTemplate,
-                roleAssigner, nightEngine, winConditionEvaluator);
+                roleAssigner, nightEngine, winConditionEvaluator, soloWinEvaluator);
     }
 
     private Room newRoom() {
@@ -371,6 +377,25 @@ class GameServiceTest {
     }
 
     @Test
+    void advancePhase_endsGameWithSoloWinnerWhenNightResolutionProducesOne() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
+        room.setCurrentNightRole(Role.WEREWOLF);
+        room.setCurrentNightStepKind(NightStepKind.SELECT);
+        mockMasterRoom(room);
+        when(nightEngine.nextRole(room, Role.WEREWOLF)).thenReturn(Optional.empty());
+        when(nightEngine.resolveDeferredKillAndClearState(room)).thenReturn(99L);
+        when(soloWinEvaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.NIGHT_KILL, 99L)))
+                .thenReturn(Optional.of(Role.IDIOT));
+
+        MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
+
+        assertThat(result.phase()).isEqualTo(GamePhase.GAME_OVER);
+        assertThat(result.winningRole()).isEqualTo(Role.IDIOT);
+        assertThat(result.winner()).isNull();
+        verify(winConditionEvaluator, never()).evaluate(any());
+    }
+
+    @Test
     void advancePhase_beginsNightDirectlyToMorningRevealWhenNoRolesConfigured() {
         Room room = startedRoom(GamePhase.NIGHT_START);
         mockMasterRoom(room);
@@ -417,6 +442,39 @@ class GameServiceTest {
         assertThat(result.phase()).isEqualTo(GamePhase.GAME_OVER);
         assertThat(result.winner()).isEqualTo(Alignment.GOOD);
         assertThat(voted.isAlive()).isFalse();
+    }
+
+    @Test
+    void advancePhase_endsGameWithSoloWinnerWhenVoteResolutionProducesOne() {
+        Room room = startedRoom(GamePhase.VOTE_SELECT_TARGET);
+        Player voted = player(room, "IDIOT", Role.IDIOT, true);
+        room.setPendingVoteVictimId(voted.getId());
+        mockMasterRoom(room);
+        when(playerRepository.findById(voted.getId())).thenReturn(Optional.of(voted));
+        when(soloWinEvaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL, voted.getId())))
+                .thenReturn(Optional.of(Role.IDIOT));
+
+        MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
+
+        assertThat(result.phase()).isEqualTo(GamePhase.GAME_OVER);
+        assertThat(result.winningRole()).isEqualTo(Role.IDIOT);
+        assertThat(voted.isAlive()).isFalse();
+    }
+
+    @Test
+    void advancePhase_soloWinTakesPriorityOverFactionWinAndSkipsTheFactionCheck() {
+        Room room = startedRoom(GamePhase.VOTE_SELECT_TARGET);
+        Player voted = player(room, "IDIOT", Role.IDIOT, true);
+        room.setPendingVoteVictimId(voted.getId());
+        mockMasterRoom(room);
+        when(playerRepository.findById(voted.getId())).thenReturn(Optional.of(voted));
+        when(soloWinEvaluator.evaluate(eq(room), any())).thenReturn(Optional.of(Role.IDIOT));
+
+        MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
+
+        assertThat(result.winningRole()).isEqualTo(Role.IDIOT);
+        assertThat(result.winner()).isNull();
+        verify(winConditionEvaluator, never()).evaluate(any());
     }
 
     @Test

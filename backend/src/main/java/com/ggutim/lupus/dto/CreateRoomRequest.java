@@ -6,8 +6,9 @@ import jakarta.validation.constraints.NotNull;
 
 /**
  * Payload sent by the master at the end of the room-creation wizard:
- * game mode, total player count, and the number of werewolves, priests
- * and gravediggers. The remaining players are assigned the villager role.
+ * game mode, total player count, and the number of werewolves, priests,
+ * gravediggers and idiots. The remaining players are assigned the
+ * villager role.
  *
  * <p>The allowed range for {@code playerCount} is configurable (see
  * {@link com.ggutim.lupus.config.GameRules}) and is therefore validated in
@@ -31,6 +32,10 @@ public record CreateRoomRequest(
 
         @NotNull(message = "gravediggerCount is required")
         @Min(value = 0, message = "gravediggerCount must be at least 0")
-        Integer gravediggerCount
+        Integer gravediggerCount,
+
+        @NotNull(message = "idiotCount is required")
+        @Min(value = 0, message = "idiotCount must be at least 0")
+        Integer idiotCount
 ) {
 }

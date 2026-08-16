@@ -32,7 +32,8 @@ public record MasterGameStateResponse(
         Alignment nightActionResult,
         Long lastNightVictimId,
         Long pendingVoteVictimId,
-        Alignment winner
+        Alignment winner,
+        Role winningRole
 ) {
 
     /**
@@ -54,6 +55,7 @@ public record MasterGameStateResponse(
                 currentAction == null ? null : currentAction.getResultAlignment(),
                 lastNightVictimId,
                 room.getPendingVoteVictimId(),
-                room.getWinner());
+                room.getWinner(),
+                room.getWinningRole());
     }
 }

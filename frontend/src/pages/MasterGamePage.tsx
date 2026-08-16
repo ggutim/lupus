@@ -101,7 +101,7 @@ function buildNightActionsCard(state: MasterGameState): CardContent {
 }
 
 function buildCard(state: MasterGameState): CardContent {
-  const { phase, players, lastNightVictimId, winner } = state
+  const { phase, players, lastNightVictimId, winner, winningRole } = state
 
   switch (phase) {
     case 'ROLES_ASSIGNED':
@@ -139,6 +139,15 @@ function buildCard(state: MasterGameState): CardContent {
         body: 'Seleziona dalla tavola il giocatore votato, oppure avanza se nessuno è stato eliminato.',
       }
     case 'GAME_OVER':
+      // winningRole is only ever 'IDIOT' today — if a second solo-win role is
+      // added, this should become a small lookup table instead of one check.
+      if (winningRole === 'IDIOT') {
+        return {
+          icon: <SkullIcon />,
+          title: 'Partita conclusa',
+          body: 'Il villaggio ha votato ed eliminato l\'idiota: vince da solo!',
+        }
+      }
       return {
         icon: <SkullIcon />,
         title: 'Partita conclusa',

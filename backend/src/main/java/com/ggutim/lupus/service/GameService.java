@@ -19,6 +19,8 @@ import com.ggutim.lupus.model.RoomStatus;
 import com.ggutim.lupus.repository.PlayerRepository;
 import com.ggutim.lupus.repository.RoomRepository;
 import com.ggutim.lupus.service.night.NightEngine;
+import com.ggutim.lupus.service.night.RoundEvent;
+import com.ggutim.lupus.service.night.SoloWinEvaluator;
 import com.ggutim.lupus.service.night.WinConditionEvaluator;
 import java.util.List;
 import java.util.Optional;
@@ -35,10 +37,11 @@ import org.springframework.transaction.annotation.Transactional;
  *
  * <p>The turn-by-turn night mechanics live in {@link NightEngine},
  * role assignment in {@link RoleAssigner}, and win checking in {@link
- * WinConditionEvaluator} — this class only owns the skeleton phase
- * sequence ({@link GamePhase}) and wires those collaborators
- * together, so it stays readable as new roles are added to the
- * collaborators without touching this control flow.
+ * WinConditionEvaluator} (faction wins) and {@link SoloWinEvaluator}
+ * (a single role winning alone, e.g. the idiot) — this class only owns
+ * the skeleton phase sequence ({@link GamePhase}) and wires those
+ * collaborators together, so it stays readable as new roles are added
+ * to the collaborators without touching this control flow.
  */
 @Service
 public class GameService {
@@ -50,10 +53,11 @@ public class GameService {
     private final RoleAssigner roleAssigner;
     private final NightEngine nightEngine;
     private final WinConditionEvaluator winConditionEvaluator;
+    private final SoloWinEvaluator soloWinEvaluator;
 
     public GameService(RoomRepository roomRepository, PlayerRepository playerRepository, RoomService roomService,
                         SimpMessagingTemplate messagingTemplate, RoleAssigner roleAssigner, NightEngine nightEngine,
-                        WinConditionEvaluator winConditionEvaluator) {
+                        WinConditionEvaluator winConditionEvaluator, SoloWinEvaluator soloWinEvaluator) {
         this.roomRepository = roomRepository;
         this.playerRepository = playerRepository;
         this.roomService = roomService;
@@ -61,6 +65,7 @@ public class GameService {
         this.roleAssigner = roleAssigner;
         this.nightEngine = nightEngine;
         this.winConditionEvaluator = winConditionEvaluator;
+        this.soloWinEvaluator = soloWinEvaluator;
     }
 
     /**
@@ -186,11 +191,9 @@ public class GameService {
      * for a winner, and enters MORNING_REVEAL if the game continues.
      */
     private void resolveNightAndEnterMorningReveal(Room room) {
-        nightEngine.resolveDeferredKillAndClearState(room);
+        Long victimId = nightEngine.resolveDeferredKillAndClearState(room);
 
-        Optional<Alignment> winner = winConditionEvaluator.evaluate(room);
-        if (winner.isPresent()) {
-            endGame(room, winner.get());
+        if (resolveWinnerIfAny(room, new RoundEvent(RoundEvent.Cause.NIGHT_KILL, victimId))) {
             return;
         }
 
@@ -207,17 +210,44 @@ public class GameService {
         }
         room.setPendingVoteVictimId(null);
 
+        if (resolveWinnerIfAny(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL, voteVictimId))) {
+            return;
+        }
+
+        room.setRoundNumber(room.getRoundNumber() + 1);
+        room.setPhase(GamePhase.NIGHT_START);
+    }
+
+    /**
+     * Checks for a solo win first (e.g. the idiot voted out), then a
+     * faction win, ending the game and returning {@code true} if
+     * either fires. A solo win takes priority since it's the more
+     * specific outcome, though in practice the two can't both fire
+     * from the same death today.
+     */
+    private boolean resolveWinnerIfAny(Room room, RoundEvent event) {
+        Optional<Role> soloWinner = soloWinEvaluator.evaluate(room, event);
+        if (soloWinner.isPresent()) {
+            endGameWithSoloWinner(room, soloWinner.get());
+            return true;
+        }
+
         Optional<Alignment> winner = winConditionEvaluator.evaluate(room);
         if (winner.isPresent()) {
             endGame(room, winner.get());
-        } else {
-            room.setRoundNumber(room.getRoundNumber() + 1);
-            room.setPhase(GamePhase.NIGHT_START);
+            return true;
         }
+
+        return false;
     }
 
     private void endGame(Room room, Alignment winner) {
         room.setWinner(winner);
+        room.setPhase(GamePhase.GAME_OVER);
+    }
+
+    private void endGameWithSoloWinner(Room room, Role role) {
+        room.setWinningRole(role);
         room.setPhase(GamePhase.GAME_OVER);
     }
 

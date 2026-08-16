@@ -309,23 +309,24 @@ class NightEngineTest {
     // ---------- resolveDeferredKillAndClearState ----------
 
     @Test
-    void resolveDeferredKillAndClearState_killsRecordedWerewolfVictim() {
+    void resolveDeferredKillAndClearState_killsRecordedWerewolfVictimAndReturnsItsId() {
         Room room = room(1, 0, 0);
         Player victim = player(room, "V1", Role.VILLAGER, true);
         mockPlayers(room, List.of(victim));
 
         NightEngine engine = nightEngine();
         engine.recordSelection(room, Role.WEREWOLF, victim.getId());
-        engine.resolveDeferredKillAndClearState(room);
+        Long victimId = engine.resolveDeferredKillAndClearState(room);
 
         assertThat(victim.isAlive()).isFalse();
+        assertThat(victimId).isEqualTo(victim.getId());
     }
 
     @Test
-    void resolveDeferredKillAndClearState_noOpWhenNoVictimRecorded() {
+    void resolveDeferredKillAndClearState_noOpAndReturnsNullWhenNoVictimRecorded() {
         Room room = room(1, 0, 0);
 
-        nightEngine().resolveDeferredKillAndClearState(room);
+        assertThat(nightEngine().resolveDeferredKillAndClearState(room)).isNull();
     }
 
     @Test

@@ -33,7 +33,7 @@ class GameControllerTest {
     private GameService gameService;
 
     private MasterGameStateResponse state(GamePhase phase) {
-        return new MasterGameStateResponse("ABCD", phase, 1, List.of(), null, null, null, null, null, null, null);
+        return new MasterGameStateResponse("ABCD", phase, 1, List.of(), null, null, null, null, null, null, null, null);
     }
 
     @Test

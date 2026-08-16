@@ -76,6 +76,14 @@ public class Room {
     @Enumerated(EnumType.STRING)
     private Alignment winner;
 
+    /**
+     * Set instead of {@link #winner} when a solo role (e.g. the idiot)
+     * wins on its own rather than as part of the good/evil factions.
+     * At most one of the two is ever set.
+     */
+    @Enumerated(EnumType.STRING)
+    private Role winningRole;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -177,6 +185,14 @@ public class Room {
 
     public void setWinner(Alignment winner) {
         this.winner = winner;
+    }
+
+    public Role getWinningRole() {
+        return winningRole;
+    }
+
+    public void setWinningRole(Role winningRole) {
+        this.winningRole = winningRole;
     }
 
     public Instant getCreatedAt() {

@@ -32,6 +32,7 @@ export interface MasterGameState {
   lastNightVictimId: number | null
   pendingVoteVictimId: number | null
   winner: Alignment | null
+  winningRole: Role | null
 }
 
 async function handleErrorResponse(response: Response, fallbackMessage: string): Promise<never> {

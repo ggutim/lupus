@@ -102,9 +102,10 @@ public class NightEngine {
      * Applies the werewolves' deferred kill (if a victim was chosen
      * this round) and clears the room's current-turn state. Doesn't
      * touch {@code phase} — that's the caller's call once it's also
-     * checked for a winner.
+     * checked for a winner. Returns the victim's id, if any, so the
+     * caller can report what happened without a second lookup.
      */
-    public void resolveDeferredKillAndClearState(Room room) {
+    public Long resolveDeferredKillAndClearState(Room room) {
         Long victimId = findAction(room, Role.WEREWOLF)
                 .map(NightAction::getTargetPlayerId)
                 .orElse(null);
@@ -118,6 +119,8 @@ public class NightEngine {
 
         room.setCurrentNightRole(null);
         room.setCurrentNightStepKind(null);
+
+        return victimId;
     }
 
     public Optional<NightAction> findAction(Room room, Role role) {
