@@ -27,6 +27,26 @@ export function PriestIcon(props: IconProps) {
   )
 }
 
+export function GravediggerIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path
+        d="M22 58V34a10 10 0 0 1 20 0v24Z"
+        fill="currentColor"
+      />
+      <path d="M22 44h20" stroke="#1a1108" strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M32 34v10" stroke="#1a1108" strokeWidth="2.4" strokeLinecap="round" />
+      <path
+        d="M14 20l10 8"
+        stroke="currentColor"
+        strokeWidth="5"
+        strokeLinecap="round"
+      />
+      <rect x="8" y="10" width="14" height="6" rx="2" transform="rotate(-32 8 10)" fill="currentColor" />
+    </svg>
+  )
+}
+
 export function VillagerIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>

@@ -67,7 +67,7 @@ class RoomServiceTest {
         when(roomRepository.existsByCode(any())).thenReturn(false);
         when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 10, 3, 1);
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 10, 3, 1, 0);
 
         RoomResponse room = roomService.createRoom(request);
 
@@ -81,7 +81,34 @@ class RoomServiceTest {
     void createRoom_rejectsRoleCountsExceedingPlayerCount() {
         RoomService roomService = roomService();
 
-        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 6, 4, 3);
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 6, 4, 3, 0);
+
+        assertThatThrownBy(() -> roomService.createRoom(request))
+                .isInstanceOf(InvalidRulesetException.class);
+    }
+
+    @Test
+    void createRoom_computesVillagerCountIncludingGravediggers() {
+        RoomService roomService = roomService();
+        when(roomRepository.existsByCode(any())).thenReturn(false);
+        when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 10, 2, 1, 2);
+
+        RoomResponse room = roomService.createRoom(request);
+
+        assertThat(room.roleCounts())
+                .containsEntry(Role.WEREWOLF, 2)
+                .containsEntry(Role.PRIEST, 1)
+                .containsEntry(Role.GRAVEDIGGER, 2)
+                .containsEntry(Role.VILLAGER, 5);
+    }
+
+    @Test
+    void createRoom_rejectsGravediggerCountPushingRolesOverPlayerCount() {
+        RoomService roomService = roomService();
+
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 6, 3, 2, 2);
 
         assertThatThrownBy(() -> roomService.createRoom(request))
                 .isInstanceOf(InvalidRulesetException.class);
@@ -91,7 +118,7 @@ class RoomServiceTest {
     void createRoom_rejectsPlayerCountBelowConfiguredMinimum() {
         RoomService roomService = roomService();
 
-        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 3, 1, 0);
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 3, 1, 0, 0);
 
         assertThatThrownBy(() -> roomService.createRoom(request))
                 .isInstanceOf(InvalidRulesetException.class);
@@ -101,7 +128,7 @@ class RoomServiceTest {
     void createRoom_rejectsPlayerCountAboveConfiguredMaximum() {
         RoomService roomService = roomService();
 
-        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 31, 1, 0);
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 31, 1, 0, 0);
 
         assertThatThrownBy(() -> roomService.createRoom(request))
                 .isInstanceOf(InvalidRulesetException.class);
@@ -116,7 +143,7 @@ class RoomServiceTest {
         when(roomRepository.existsByCode(any())).thenReturn(false);
         when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 3, 1, 0);
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 3, 1, 0, 0);
 
         RoomResponse room = roomService.createRoom(request);
 
@@ -129,7 +156,7 @@ class RoomServiceTest {
         when(roomRepository.existsByCode(any())).thenReturn(false);
         when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 6, 4, 2);
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 6, 4, 2, 0);
 
         RoomResponse room = roomService.createRoom(request);
 
@@ -142,7 +169,7 @@ class RoomServiceTest {
         when(roomRepository.existsByCode(any())).thenReturn(false);
         when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 8, 2, 1);
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 8, 2, 1, 0);
 
         RoomResponse room = roomService.createRoom(request);
 
@@ -155,7 +182,7 @@ class RoomServiceTest {
         when(roomRepository.existsByCode(any())).thenReturn(true, false);
         when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 8, 2, 1);
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 8, 2, 1, 0);
 
         RoomResponse room = roomService.createRoom(request);
 
@@ -207,7 +234,7 @@ class RoomServiceTest {
         when(roomRepository.existsByCode(any())).thenReturn(false);
         when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
-        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 8, 2, 1);
+        CreateRoomRequest request = new CreateRoomRequest(GameMode.CLASSIC, 8, 2, 1, 0);
 
         RoomResponse roomA = roomService().createRoom(request);
         RoomResponse roomB = roomService().createRoom(request);

@@ -11,7 +11,7 @@
 | 7  | Card given to a player should be hidden by default. Discover only on tap                                    | DONE    |
 | 8  | New evil role: "corrupted judge"                                                                            | BACKLOG |
 | 9  | New evil role: "killer"                                                                                     | BACKLOG |
-| 10 | New good role: "gravedigger"                                                                                | BACKLOG |
+| 10 | New good role: "gravedigger"                                                                                | DONE    |
 | 11 | New good role: "survivor"                                                                                   | BACKLOG |
 | 12 | New good role: "hunter"                                                                                     | BACKLOG |
 | 13 | New good role: "cupid"                                                                                      | BACKLOG |
@@ -21,3 +21,4 @@
 | 17 | New neutral role: "thief"                                                                                   | BACKLOG |
 | 18 | New neutral role: "doppleganger"                                                                            | BACKLOG |
 | 19 | Bug. As is, if a role gets eliminated, is not called during the night                                       | DONE    |
+| 20 | Better icons for roles, now are nice but a little bit messy                                                 | BACKLOG |

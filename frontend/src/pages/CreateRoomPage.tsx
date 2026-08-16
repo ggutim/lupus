@@ -5,7 +5,7 @@ import { storeMasterToken } from '../api/masterToken'
 import { MAX_PLAYERS, MIN_PLAYERS } from '../api/gameRules'
 import BoardPanel from '../components/BoardPanel'
 import RoleCard from '../components/RoleCard'
-import { MeepleIcon, PriestIcon, VillagerIcon, WerewolfIcon } from '../components/icons'
+import { GravediggerIcon, MeepleIcon, PriestIcon, VillagerIcon, WerewolfIcon } from '../components/icons'
 
 type Step = 'mode' | 'players' | 'roles'
 
@@ -44,12 +44,13 @@ function CreateRoomPage() {
   const [playerCount, setPlayerCount] = useState(8)
   const [werewolfCount, setWerewolfCount] = useState(2)
   const [priestCount, setPriestCount] = useState(1)
+  const [gravediggerCount, setGravediggerCount] = useState(0)
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const villagerCount = Math.max(playerCount - werewolfCount - priestCount, 0)
-  const rolesExceedPlayers = werewolfCount + priestCount > playerCount
+  const villagerCount = Math.max(playerCount - werewolfCount - priestCount - gravediggerCount, 0)
+  const rolesExceedPlayers = werewolfCount + priestCount + gravediggerCount > playerCount
 
   const handleCreateRoom = async () => {
     setError(null)
@@ -60,6 +61,7 @@ function CreateRoomPage() {
         playerCount,
         werewolfCount,
         priestCount,
+        gravediggerCount,
       })
       storeMasterToken(room.code, room.masterToken)
       navigate(`/room/${room.code}`)
@@ -148,6 +150,13 @@ function CreateRoomPage() {
               count={priestCount}
               min={0}
               onChange={setPriestCount}
+            />
+            <RoleCard
+              icon={<GravediggerIcon />}
+              label="Becchini"
+              count={gravediggerCount}
+              min={0}
+              onChange={setGravediggerCount}
             />
             <RoleCard icon={<VillagerIcon />} label="Contadini" count={villagerCount} readOnly />
           </div>

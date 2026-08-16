@@ -101,11 +101,15 @@ public class PlayerService {
             throw new NotEnoughPlayersException(code, gameRules.getMinPlayers());
         }
 
-        int specialRoleCount = room.getRoleCounts().getOrDefault(Role.WEREWOLF, 0)
-                + room.getRoleCounts().getOrDefault(Role.PRIEST, 0);
+        int specialRoleCount = 0;
+        for (Role role : Role.values()) {
+            if (role != Role.VILLAGER) {
+                specialRoleCount += room.getRoleCounts().getOrDefault(role, 0);
+            }
+        }
         if (specialRoleCount > players.size()) {
             throw new InvalidRulesetException(
-                    "Not enough players joined to fill the configured werewolf and priest roles");
+                    "Not enough players joined to fill the configured roles");
         }
 
         gameService.startGame(room, players);

@@ -15,7 +15,7 @@ import { subscribeToGame } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
 import VillageOverviewDialog from '../components/VillageOverviewDialog'
 import { useDialog } from '../components/useDialog'
-import { EyeIcon, MoonIcon, PriestIcon, SkullIcon, SunIcon, WerewolfIcon } from '../components/icons'
+import { EyeIcon, GravediggerIcon, MoonIcon, PriestIcon, SkullIcon, SunIcon, WerewolfIcon } from '../components/icons'
 import type { ReactNode } from 'react'
 
 interface CardContent {
@@ -55,6 +55,21 @@ const NIGHT_ROLE_CONTENT: Partial<Record<Role, NightRoleContent>> = {
           {targetName} è <strong>{result === 'EVIL' ? 'malvagio' : 'buono'}</strong>.
         </p>
         <p className="game-card-hint">Comunicalo in silenzio al sacerdote.</p>
+      </>
+    ),
+  },
+  GRAVEDIGGER: {
+    icon: <GravediggerIcon />,
+    wakeUpTitle: 'Il becchino si sveglia',
+    wakeUpBody: 'Il becchino apre gli occhi e sceglie un morto da esaminare, se ce n\'è uno.',
+    selectTitle: 'Chi vuole esaminare il becchino?',
+    selectPrompt: 'Seleziona dalla tavola un giocatore morto, oppure avanza se non vuole scegliere.',
+    renderResult: (targetName, result) => (
+      <>
+        <p>
+          {targetName} era <strong>{result === 'EVIL' ? 'malvagio' : 'buono'}</strong>.
+        </p>
+        <p className="game-card-hint">Comunicalo in silenzio al becchino.</p>
       </>
     ),
   },
@@ -145,7 +160,26 @@ function roleHasSelectableHolder(state: MasterGameState, role: Role): boolean {
   )
 }
 
+/** Roles targeting the dead rather than the living, e.g. the gravedigger. */
+function roleTargetsDeadPlayers(role: Role): boolean {
+  return role === 'GRAVEDIGGER'
+}
+
+/**
+ * Whether {@code role} has anyone it could select at all right now.
+ * Roles targeting the living always do (there's always a table to
+ * choose from); a dead-target role has nothing to select until at
+ * least one player has died — mirrors the backend's roleHasEligibleTarget.
+ */
+function hasEligibleNightTarget(state: MasterGameState, role: Role): boolean {
+  if (!roleTargetsDeadPlayers(role)) return true
+  return state.players.some((player) => !player.alive)
+}
+
 function selectablePlayers(state: MasterGameState): MasterPlayerView[] {
+  if (state.phase === 'NIGHT_ACTIONS' && state.currentNightRole && roleTargetsDeadPlayers(state.currentNightRole)) {
+    return state.players.filter((player) => !player.alive)
+  }
   const alive = state.players.filter((player) => player.alive)
   if (state.phase === 'NIGHT_ACTIONS' && state.currentNightRole === 'WEREWOLF') {
     return alive.filter((player) => player.role !== 'WEREWOLF')
@@ -206,7 +240,10 @@ function MasterGamePage() {
   const isNightSelectStep = state.phase === 'NIGHT_ACTIONS' && state.currentNightStepKind === 'SELECT'
   const isVotePhase = state.phase === 'VOTE_SELECT_TARGET'
   const nightSelectionRequired =
-    isNightSelectStep && state.currentNightRole !== null && roleHasSelectableHolder(state, state.currentNightRole)
+    isNightSelectStep &&
+    state.currentNightRole !== null &&
+    roleHasSelectableHolder(state, state.currentNightRole) &&
+    hasEligibleNightTarget(state, state.currentNightRole)
   const showSelectionGrid = (isNightSelectStep && nightSelectionRequired) || isVotePhase
   const selectedId = isNightSelectStep
     ? state.pendingNightActionTargetId

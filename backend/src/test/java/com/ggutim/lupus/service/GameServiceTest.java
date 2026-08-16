@@ -3,16 +3,19 @@ package com.ggutim.lupus.service;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyInt;
-import static org.mockito.Mockito.mock;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
+import com.ggutim.lupus.dto.GameUpdatedMessage;
 import com.ggutim.lupus.dto.MasterGameStateResponse;
 import com.ggutim.lupus.dto.PlayerResponse;
 import com.ggutim.lupus.dto.VillageOverviewResponse;
 import com.ggutim.lupus.exception.InvalidGamePhaseException;
 import com.ggutim.lupus.exception.MasterTokenMismatchException;
-import com.ggutim.lupus.exception.PlayerNotFoundException;
 import com.ggutim.lupus.exception.RoomNotFoundException;
 import com.ggutim.lupus.model.Alignment;
 import com.ggutim.lupus.model.GameMode;
@@ -23,11 +26,10 @@ import com.ggutim.lupus.model.Player;
 import com.ggutim.lupus.model.Role;
 import com.ggutim.lupus.model.Room;
 import com.ggutim.lupus.model.RoomStatus;
-import com.ggutim.lupus.repository.NightActionRepository;
 import com.ggutim.lupus.repository.PlayerRepository;
 import com.ggutim.lupus.repository.RoomRepository;
-import java.util.ArrayList;
-import java.util.HashMap;
+import com.ggutim.lupus.service.night.NightEngine;
+import com.ggutim.lupus.service.night.WinConditionEvaluator;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -39,6 +41,14 @@ import org.mockito.junit.jupiter.MockitoSettings;
 import org.mockito.quality.Strictness;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 
+/**
+ * Unit tests for GameService's own orchestration — phase transitions,
+ * delegation to its collaborators, and DTO assembly — with {@link
+ * NightEngine}, {@link RoleAssigner} and {@link WinConditionEvaluator}
+ * mocked out, same as {@code PlayerServiceTest} already mocks {@link
+ * GameService} itself. Their own internals (real per-role wiring, win
+ * math) are covered by their dedicated test classes.
+ */
 @ExtendWith(MockitoExtension.class)
 @MockitoSettings(strictness = Strictness.LENIENT)
 class GameServiceTest {
@@ -58,43 +68,32 @@ class GameServiceTest {
     @Mock
     private SimpMessagingTemplate messagingTemplate;
 
+    @Mock
+    private RoleAssigner roleAssigner;
+
+    @Mock
+    private NightEngine nightEngine;
+
+    @Mock
+    private WinConditionEvaluator winConditionEvaluator;
+
     private long nextId = 1;
 
-    /**
-     * Real {@link NightActionEffect}/{@link WinConditionCheck}
-     * implementations (not mocks) so these tests exercise the actual
-     * werewolf/priest wiring, backed by an in-memory fake repository
-     * since {@code GameService} both writes and reads {@link
-     * NightAction} rows within a single call.
-     */
     private GameService gameService() {
-        Map<String, NightAction> store = new HashMap<>();
-        NightActionRepository nightActionRepository = mock(NightActionRepository.class);
-        when(nightActionRepository.save(any())).thenAnswer(invocation -> {
-            NightAction action = invocation.getArgument(0);
-            store.put(nightActionKey(action.getRoom().getId(), action.getRoundNumber(), action.getRole()), action);
-            return action;
-        });
-        when(nightActionRepository.findByRoomIdAndRoundNumberAndRole(any(), anyInt(), any())).thenAnswer(invocation ->
-                Optional.ofNullable(store.get(nightActionKey(
-                        invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2)))));
-
-        List<NightActionEffect> effects = List.of(new WerewolfKillEffect(), new PriestInspectEffect());
-        List<WinConditionCheck> winConditions = List.of(new GoodEvilHeadcountWinCondition(playerRepository));
-
-        return new GameService(roomRepository, playerRepository, nightActionRepository, roomService,
-                messagingTemplate, effects, winConditions);
+        return new GameService(roomRepository, playerRepository, roomService, messagingTemplate,
+                roleAssigner, nightEngine, winConditionEvaluator);
     }
 
-    private String nightActionKey(Long roomId, int round, Role role) {
-        return roomId + ":" + round + ":" + role;
-    }
-
-    private Room room(int playerCount, int werewolfCount, int priestCount) {
-        int villagerCount = playerCount - werewolfCount - priestCount;
-        Room room = new Room(CODE, MASTER_TOKEN, GameMode.CLASSIC, playerCount, Map.of(
-                Role.WEREWOLF, werewolfCount, Role.PRIEST, priestCount, Role.VILLAGER, villagerCount));
+    private Room newRoom() {
+        Room room = new Room(CODE, MASTER_TOKEN, GameMode.CLASSIC, 4, Map.of(Role.VILLAGER, 4));
         setId(room, nextId++);
+        return room;
+    }
+
+    private Room startedRoom(GamePhase phase) {
+        Room room = newRoom();
+        room.start();
+        room.setPhase(phase);
         return room;
     }
 
@@ -112,49 +111,38 @@ class GameServiceTest {
         when(roomService.findRoomForMaster(CODE, MASTER_TOKEN)).thenReturn(room);
     }
 
-    private void mockPersistence(Room room, List<Player> players) {
-        when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(playerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(playerRepository.saveAll(any())).thenAnswer(invocation -> invocation.getArgument(0));
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(players);
-        when(playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId()))
-                .thenAnswer(invocation -> players.stream().filter(Player::isAlive).toList());
-        for (Player player : players) {
-            when(playerRepository.findById(player.getId())).thenReturn(Optional.of(player));
+    private void setId(Object entity, Long id) {
+        try {
+            var field = entity.getClass().getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(entity, id);
+        } catch (ReflectiveOperationException e) {
+            throw new RuntimeException(e);
         }
     }
 
-    // ---------- startGame / role assignment ----------
+    // ---------- startGame ----------
 
     @Test
-    void startGame_assignsConfiguredRoleCountsAndEntersFirstPhase() {
-        Room room = room(6, 2, 1);
-        List<Player> players = new ArrayList<>();
-        for (int i = 0; i < 6; i++) {
-            Player player = new Player(room, "P" + i, "token" + i);
-            setId(player, nextId++);
-            players.add(player);
-        }
-        mockPersistence(room, players);
+    void startGame_delegatesToRoleAssignerAndEntersFirstPhase() {
+        Room room = newRoom();
+        List<Player> players = List.of(player(room, "P1", Role.VILLAGER, true));
+        when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
 
         gameService().startGame(room, players);
 
+        verify(roleAssigner).assign(room, players);
         assertThat(room.getStatus()).isEqualTo(RoomStatus.STARTED);
         assertThat(room.getPhase()).isEqualTo(GamePhase.ROLES_ASSIGNED);
         assertThat(room.getRoundNumber()).isEqualTo(1);
-
-        Map<Role, Long> counts = players.stream()
-                .collect(java.util.stream.Collectors.groupingBy(Player::getRole, java.util.stream.Collectors.counting()));
-        assertThat(counts.getOrDefault(Role.WEREWOLF, 0L)).isEqualTo(2);
-        assertThat(counts.getOrDefault(Role.PRIEST, 0L)).isEqualTo(1);
-        assertThat(counts.getOrDefault(Role.VILLAGER, 0L)).isEqualTo(3);
+        verify(messagingTemplate).convertAndSend(eq("/topic/rooms/" + CODE + "/game"), any(GameUpdatedMessage.class));
     }
 
     // ---------- getGameState ----------
 
     @Test
     void getGameState_rejectsWhenGameNotStarted() {
-        Room room = room(6, 1, 0);
+        Room room = newRoom();
         mockMasterRoom(room);
 
         assertThatThrownBy(() -> gameService().getGameState(CODE, MASTER_TOKEN))
@@ -171,19 +159,40 @@ class GameServiceTest {
 
     @Test
     void getGameState_returnsPlayersWithRoles() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.ROLES_ASSIGNED);
+        Room room = startedRoom(GamePhase.ROLES_ASSIGNED);
         Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
         Player villager = player(room, "VILL", Role.VILLAGER, true);
         mockMasterRoom(room);
-        mockPersistence(room, List.of(wolf, villager));
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(wolf, villager));
 
         MasterGameStateResponse state = gameService().getGameState(CODE, MASTER_TOKEN);
 
         assertThat(state.phase()).isEqualTo(GamePhase.ROLES_ASSIGNED);
         assertThat(state.players()).hasSize(2);
         assertThat(state.players().get(0).role()).isEqualTo(Role.WEREWOLF);
+    }
+
+    @Test
+    void getGameState_includesNightActionResultAndLastVictimFromNightEngine() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
+        room.setCurrentNightRole(Role.PRIEST);
+        room.setCurrentNightStepKind(NightStepKind.SELECT);
+        mockMasterRoom(room);
+
+        NightAction priestAction = new NightAction(room, room.getRoundNumber(), Role.PRIEST);
+        priestAction.setTargetPlayerId(42L);
+        priestAction.setResultAlignment(Alignment.EVIL);
+        when(nightEngine.findAction(room, Role.PRIEST)).thenReturn(Optional.of(priestAction));
+
+        NightAction werewolfAction = new NightAction(room, room.getRoundNumber(), Role.WEREWOLF);
+        werewolfAction.setTargetPlayerId(7L);
+        when(nightEngine.findAction(room, Role.WEREWOLF)).thenReturn(Optional.of(werewolfAction));
+
+        MasterGameStateResponse state = gameService().getGameState(CODE, MASTER_TOKEN);
+
+        assertThat(state.pendingNightActionTargetId()).isEqualTo(42L);
+        assertThat(state.nightActionResult()).isEqualTo(Alignment.EVIL);
+        assertThat(state.lastNightVictimId()).isEqualTo(7L);
     }
 
     // ---------- getVillageOverview ----------
@@ -198,13 +207,11 @@ class GameServiceTest {
 
     @Test
     void getVillageOverview_hidesOvernightDeathDuringMorningReveal() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.MORNING_REVEAL);
+        Room room = startedRoom(GamePhase.MORNING_REVEAL);
         Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
         Player victim = player(room, "VILL", Role.VILLAGER, false);
         when(roomRepository.findByCode(CODE)).thenReturn(Optional.of(room));
-        mockPersistence(room, List.of(wolf, victim));
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(wolf, victim));
 
         VillageOverviewResponse overview = gameService().getVillageOverview(CODE);
 
@@ -213,33 +220,82 @@ class GameServiceTest {
 
     @Test
     void getVillageOverview_revealsDeathOnceDiscussionStarts() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.DISCUSSION);
+        Room room = startedRoom(GamePhase.DISCUSSION);
         Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
         Player victim = player(room, "VILL", Role.VILLAGER, false);
         when(roomRepository.findByCode(CODE)).thenReturn(Optional.of(room));
-        mockPersistence(room, List.of(wolf, victim));
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(wolf, victim));
 
         VillageOverviewResponse overview = gameService().getVillageOverview(CODE);
 
         assertThat(overview.players()).extracting(PlayerResponse::alive).containsExactly(true, false);
     }
 
-    // ---------- advancePhase: narration chain ----------
+    // ---------- selectNightTarget ----------
 
     @Test
-    void advancePhase_movesThroughNarrationPhasesInOrder() {
-        Room room = room(4, 1, 1);
-        room.start();
-        room.setPhase(GamePhase.ROLES_ASSIGNED);
-        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
-        Player priest = player(room, "PRIEST", Role.PRIEST, true);
-        Player v1 = player(room, "V1", Role.VILLAGER, true);
-        Player v2 = player(room, "V2", Role.VILLAGER, true);
-        List<Player> players = List.of(wolf, priest, v1, v2);
+    void selectNightTarget_rejectsWhenNotInNightSelectStep() {
+        Room room = startedRoom(GamePhase.NIGHT_START);
         mockMasterRoom(room);
-        mockPersistence(room, players);
+
+        assertThatThrownBy(() -> gameService().selectNightTarget(CODE, MASTER_TOKEN, 1L))
+                .isInstanceOf(InvalidGamePhaseException.class);
+        verifyNoInteractions(nightEngine);
+    }
+
+    @Test
+    void selectNightTarget_delegatesToNightEngineAndReturnsUpdatedState() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
+        room.setCurrentNightRole(Role.WEREWOLF);
+        room.setCurrentNightStepKind(NightStepKind.SELECT);
+        mockMasterRoom(room);
+
+        MasterGameStateResponse result = gameService().selectNightTarget(CODE, MASTER_TOKEN, 42L);
+
+        verify(nightEngine).recordSelection(room, Role.WEREWOLF, 42L);
+        assertThat(result.phase()).isEqualTo(GamePhase.NIGHT_ACTIONS);
+    }
+
+    // ---------- selectVoteVictim ----------
+
+    @Test
+    void selectVoteVictim_allowsNoOneVotedOut() {
+        Room room = startedRoom(GamePhase.VOTE_SELECT_TARGET);
+        mockMasterRoom(room);
+
+        MasterGameStateResponse result = gameService().selectVoteVictim(CODE, MASTER_TOKEN, null);
+
+        assertThat(result.pendingVoteVictimId()).isNull();
+    }
+
+    @Test
+    void selectVoteVictim_storesPendingVictim() {
+        Room room = startedRoom(GamePhase.VOTE_SELECT_TARGET);
+        Player target = player(room, "V1", Role.VILLAGER, true);
+        mockMasterRoom(room);
+        when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
+
+        MasterGameStateResponse result = gameService().selectVoteVictim(CODE, MASTER_TOKEN, target.getId());
+
+        assertThat(result.pendingVoteVictimId()).isEqualTo(target.getId());
+    }
+
+    @Test
+    void selectVoteVictim_rejectsWhenGameOver() {
+        Room room = startedRoom(GamePhase.GAME_OVER);
+        mockMasterRoom(room);
+
+        assertThatThrownBy(() -> gameService().selectVoteVictim(CODE, MASTER_TOKEN, 1L))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    // ---------- advancePhase: skeleton phase sequencing ----------
+
+    @Test
+    void advancePhase_movesThroughSkeletonPhasesInOrder() {
+        Room room = startedRoom(GamePhase.ROLES_ASSIGNED);
+        mockMasterRoom(room);
+        when(nightEngine.nextRole(eq(room), isNull())).thenReturn(Optional.of(Role.WEREWOLF));
 
         GameService gameService = gameService();
 
@@ -256,178 +312,80 @@ class GameServiceTest {
     }
 
     @Test
-    void advancePhase_rejectsAdvancingPastNightSelectionWithoutSelectionWhenRoleAlive() {
-        Room room = room(4, 1, 1);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
+    void advancePhase_movesToRoleReturnedByNightEngineAfterSelection() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
         room.setCurrentNightRole(Role.WEREWOLF);
         room.setCurrentNightStepKind(NightStepKind.SELECT);
-        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
         mockMasterRoom(room);
-        mockPersistence(room, List.of(wolf));
+        when(nightEngine.nextRole(room, Role.WEREWOLF)).thenReturn(Optional.of(Role.PRIEST));
 
-        assertThatThrownBy(() -> gameService().advancePhase(CODE, MASTER_TOKEN))
-                .isInstanceOf(InvalidGamePhaseException.class);
-    }
+        MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
 
-    @Test
-    void advancePhase_movesToNextConfiguredRoleAfterWerewolvesSelect() {
-        Room room = room(4, 1, 1);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
-        room.setCurrentNightRole(Role.WEREWOLF);
-        room.setCurrentNightStepKind(NightStepKind.SELECT);
-        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
-        Player priest = player(room, "PRIEST", Role.PRIEST, true);
-        Player v1 = player(room, "V1", Role.VILLAGER, true);
-        Player v2 = player(room, "V2", Role.VILLAGER, true);
-        List<Player> players = List.of(wolf, priest, v1, v2);
-        mockMasterRoom(room);
-        mockPersistence(room, players);
-
-        GameService gameService = gameService();
-        gameService.selectNightTarget(CODE, MASTER_TOKEN, v1.getId());
-        MasterGameStateResponse result = gameService.advancePhase(CODE, MASTER_TOKEN);
-
+        verify(nightEngine).requireSelectionIfNeeded(room, Role.WEREWOLF);
         assertThat(result.phase()).isEqualTo(GamePhase.NIGHT_ACTIONS);
         assertThat(result.currentNightRole()).isEqualTo(Role.PRIEST);
         assertThat(result.currentNightStepKind()).isEqualTo(NightStepKind.WAKE_UP);
     }
 
     @Test
-    void advancePhase_goesStraightToMorningRevealWhenNoOtherRoleConfigured() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
+    void advancePhase_propagatesRequireSelectionFailureFromNightEngine() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
         room.setCurrentNightRole(Role.WEREWOLF);
         room.setCurrentNightStepKind(NightStepKind.SELECT);
-        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
-        Player v1 = player(room, "V1", Role.VILLAGER, true);
-        Player v2 = player(room, "V2", Role.VILLAGER, true);
-        Player v3 = player(room, "V3", Role.VILLAGER, true);
-        List<Player> players = List.of(wolf, v1, v2, v3);
         mockMasterRoom(room);
-        mockPersistence(room, players);
-
-        GameService gameService = gameService();
-        gameService.selectNightTarget(CODE, MASTER_TOKEN, v1.getId());
-        MasterGameStateResponse result = gameService.advancePhase(CODE, MASTER_TOKEN);
-
-        assertThat(result.phase()).isEqualTo(GamePhase.MORNING_REVEAL);
-        assertThat(v1.isAlive()).isFalse();
-        assertThat(result.lastNightVictimId()).isEqualTo(v1.getId());
-    }
-
-    @Test
-    void advancePhase_stillNarratesPriestTurnEvenWhenPriestIsTonightsVictim() {
-        Room room = room(4, 1, 1);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
-        room.setCurrentNightRole(Role.WEREWOLF);
-        room.setCurrentNightStepKind(NightStepKind.SELECT);
-        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
-        Player priest = player(room, "PRIEST", Role.PRIEST, true);
-        Player v1 = player(room, "V1", Role.VILLAGER, true);
-        Player v2 = player(room, "V2", Role.VILLAGER, true);
-        List<Player> players = List.of(wolf, priest, v1, v2);
-        mockMasterRoom(room);
-        mockPersistence(room, players);
-
-        GameService gameService = gameService();
-        gameService.selectNightTarget(CODE, MASTER_TOKEN, priest.getId());
-        MasterGameStateResponse afterWerewolves = gameService.advancePhase(CODE, MASTER_TOKEN);
-
-        assertThat(afterWerewolves.phase()).isEqualTo(GamePhase.NIGHT_ACTIONS);
-        assertThat(afterWerewolves.currentNightRole()).isEqualTo(Role.PRIEST);
-        assertThat(afterWerewolves.currentNightStepKind()).isEqualTo(NightStepKind.WAKE_UP);
-
-        MasterGameStateResponse afterPriestWakeUp = gameService.advancePhase(CODE, MASTER_TOKEN);
-        assertThat(afterPriestWakeUp.currentNightStepKind()).isEqualTo(NightStepKind.SELECT);
-
-        // no selection is made for the priest — they're already this round's victim — advancing must not throw
-        MasterGameStateResponse afterPriestSelect = gameService.advancePhase(CODE, MASTER_TOKEN);
-        assertThat(afterPriestSelect.phase()).isEqualTo(GamePhase.MORNING_REVEAL);
-        assertThat(priest.isAlive()).isFalse();
-    }
-
-    @Test
-    void advancePhase_stillNarratesRoleWhoseHolderDiedInAnEarlierRound() {
-        Room room = room(5, 1, 1);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_START);
-        room.setRoundNumber(2);
-        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
-        Player deadPriest = player(room, "PRIEST", Role.PRIEST, false);
-        Player v1 = player(room, "V1", Role.VILLAGER, true);
-        Player v2 = player(room, "V2", Role.VILLAGER, true);
-        Player v3 = player(room, "V3", Role.VILLAGER, true);
-        List<Player> players = List.of(wolf, deadPriest, v1, v2, v3);
-        mockMasterRoom(room);
-        mockPersistence(room, players);
-
-        GameService gameService = gameService();
-        gameService.advancePhase(CODE, MASTER_TOKEN); // NIGHT_START -> NIGHT_ACTIONS, WEREWOLF, WAKE_UP
-        gameService.advancePhase(CODE, MASTER_TOKEN); // WAKE_UP -> SELECT
-        gameService.selectNightTarget(CODE, MASTER_TOKEN, v1.getId());
-        MasterGameStateResponse afterWerewolves = gameService.advancePhase(CODE, MASTER_TOKEN);
-
-        // the priest died last round, but their turn is still narrated this round (fixes #19)
-        assertThat(afterWerewolves.currentNightRole()).isEqualTo(Role.PRIEST);
-        assertThat(afterWerewolves.currentNightStepKind()).isEqualTo(NightStepKind.WAKE_UP);
-
-        MasterGameStateResponse afterPriestWakeUp = gameService.advancePhase(CODE, MASTER_TOKEN);
-        assertThat(afterPriestWakeUp.currentNightStepKind()).isEqualTo(NightStepKind.SELECT);
-
-        MasterGameStateResponse afterPriestSelect = gameService.advancePhase(CODE, MASTER_TOKEN);
-        assertThat(afterPriestSelect.phase()).isEqualTo(GamePhase.MORNING_REVEAL);
-    }
-
-    @Test
-    void advancePhase_rejectsAdvancingPastPriestSelectionWithoutSelectionWhenPriestAlive() {
-        Room room = room(4, 1, 1);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
-        room.setCurrentNightRole(Role.PRIEST);
-        room.setCurrentNightStepKind(NightStepKind.SELECT);
-        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
-        Player priest = player(room, "PRIEST", Role.PRIEST, true);
-        List<Player> players = List.of(wolf, priest);
-        mockMasterRoom(room);
-        mockPersistence(room, players);
+        doThrow(new InvalidGamePhaseException("select first"))
+                .when(nightEngine).requireSelectionIfNeeded(room, Role.WEREWOLF);
 
         assertThatThrownBy(() -> gameService().advancePhase(CODE, MASTER_TOKEN))
                 .isInstanceOf(InvalidGamePhaseException.class);
     }
 
     @Test
-    void advancePhase_fromPriestSelectionGoesToMorningRevealWhenNoMoreRoles() {
-        Room room = room(4, 1, 1);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
+    void advancePhase_resolvesNightAndEntersMorningRevealWhenNoMoreRoles() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
         room.setCurrentNightRole(Role.PRIEST);
         room.setCurrentNightStepKind(NightStepKind.SELECT);
-        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
-        Player priest = player(room, "PRIEST", Role.PRIEST, true);
-        Player v1 = player(room, "V1", Role.VILLAGER, true);
-        Player v2 = player(room, "V2", Role.VILLAGER, true);
-        List<Player> players = List.of(wolf, priest, v1, v2);
         mockMasterRoom(room);
-        mockPersistence(room, players);
+        when(nightEngine.nextRole(room, Role.PRIEST)).thenReturn(Optional.empty());
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
 
-        GameService gameService = gameService();
-        gameService.selectNightTarget(CODE, MASTER_TOKEN, v1.getId());
-        MasterGameStateResponse result = gameService.advancePhase(CODE, MASTER_TOKEN);
+        MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
+
+        verify(nightEngine).resolveDeferredKillAndClearState(room);
+        assertThat(result.phase()).isEqualTo(GamePhase.MORNING_REVEAL);
+    }
+
+    @Test
+    void advancePhase_endsGameWhenNightResolutionDecidesAWinner() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
+        room.setCurrentNightRole(Role.WEREWOLF);
+        room.setCurrentNightStepKind(NightStepKind.SELECT);
+        mockMasterRoom(room);
+        when(nightEngine.nextRole(room, Role.WEREWOLF)).thenReturn(Optional.empty());
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.of(Alignment.EVIL));
+
+        MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
+
+        assertThat(result.phase()).isEqualTo(GamePhase.GAME_OVER);
+        assertThat(result.winner()).isEqualTo(Alignment.EVIL);
+    }
+
+    @Test
+    void advancePhase_beginsNightDirectlyToMorningRevealWhenNoRolesConfigured() {
+        Room room = startedRoom(GamePhase.NIGHT_START);
+        mockMasterRoom(room);
+        when(nightEngine.nextRole(eq(room), isNull())).thenReturn(Optional.empty());
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
+
+        MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
 
         assertThat(result.phase()).isEqualTo(GamePhase.MORNING_REVEAL);
     }
 
     @Test
     void advancePhase_discussionToVoteSelection() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.DISCUSSION);
+        Room room = startedRoom(GamePhase.DISCUSSION);
         mockMasterRoom(room);
-        mockPersistence(room, List.of());
 
         MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
 
@@ -436,266 +394,56 @@ class GameServiceTest {
 
     @Test
     void advancePhase_rejectsWhenGameAlreadyOver() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.GAME_OVER);
+        Room room = startedRoom(GamePhase.GAME_OVER);
         mockMasterRoom(room);
 
         assertThatThrownBy(() -> gameService().advancePhase(CODE, MASTER_TOKEN))
                 .isInstanceOf(InvalidGamePhaseException.class);
     }
 
-    // ---------- selectNightTarget ----------
+    // ---------- advancePhase: vote resolution ----------
 
     @Test
-    void selectNightTarget_rejectsWhenNotInNightActionsPhase() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_START);
+    void advancePhase_endsGameWhenVoteResolutionDecidesAWinner() {
+        Room room = startedRoom(GamePhase.VOTE_SELECT_TARGET);
+        Player voted = player(room, "WOLF", Role.WEREWOLF, true);
+        room.setPendingVoteVictimId(voted.getId());
         mockMasterRoom(room);
-
-        assertThatThrownBy(() -> gameService().selectNightTarget(CODE, MASTER_TOKEN, 1L))
-                .isInstanceOf(InvalidGamePhaseException.class);
-    }
-
-    @Test
-    void selectNightTarget_rejectsWhenStillOnWakeUpBeat() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
-        room.setCurrentNightRole(Role.WEREWOLF);
-        room.setCurrentNightStepKind(NightStepKind.WAKE_UP);
-        mockMasterRoom(room);
-
-        assertThatThrownBy(() -> gameService().selectNightTarget(CODE, MASTER_TOKEN, 1L))
-                .isInstanceOf(InvalidGamePhaseException.class);
-    }
-
-    @Test
-    void selectNightTarget_rejectsDeadTarget() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
-        room.setCurrentNightRole(Role.WEREWOLF);
-        room.setCurrentNightStepKind(NightStepKind.SELECT);
-        Player deadVillager = player(room, "DEAD", Role.VILLAGER, false);
-        mockMasterRoom(room);
-        when(playerRepository.findById(deadVillager.getId())).thenReturn(Optional.of(deadVillager));
-
-        assertThatThrownBy(() -> gameService().selectNightTarget(CODE, MASTER_TOKEN, deadVillager.getId()))
-                .isInstanceOf(InvalidGamePhaseException.class);
-    }
-
-    @Test
-    void selectNightTarget_rejectsAnotherWerewolfAsWerewolfTarget() {
-        Room room = room(4, 2, 0);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
-        room.setCurrentNightRole(Role.WEREWOLF);
-        room.setCurrentNightStepKind(NightStepKind.SELECT);
-        Player otherWolf = player(room, "WOLF2", Role.WEREWOLF, true);
-        mockMasterRoom(room);
-        when(playerRepository.findById(otherWolf.getId())).thenReturn(Optional.of(otherWolf));
-
-        assertThatThrownBy(() -> gameService().selectNightTarget(CODE, MASTER_TOKEN, otherWolf.getId()))
-                .isInstanceOf(InvalidGamePhaseException.class);
-    }
-
-    @Test
-    void selectNightTarget_rejectsUnknownPlayer() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
-        room.setCurrentNightRole(Role.WEREWOLF);
-        room.setCurrentNightStepKind(NightStepKind.SELECT);
-        mockMasterRoom(room);
-        when(playerRepository.findById(999L)).thenReturn(Optional.empty());
-
-        assertThatThrownBy(() -> gameService().selectNightTarget(CODE, MASTER_TOKEN, 999L))
-                .isInstanceOf(PlayerNotFoundException.class);
-    }
-
-    @Test
-    void selectNightTarget_storesPendingWerewolfVictim() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
-        room.setCurrentNightRole(Role.WEREWOLF);
-        room.setCurrentNightStepKind(NightStepKind.SELECT);
-        Player target = player(room, "V1", Role.VILLAGER, true);
-        mockMasterRoom(room);
-        mockPersistence(room, List.of(target));
-
-        MasterGameStateResponse result = gameService().selectNightTarget(CODE, MASTER_TOKEN, target.getId());
-
-        assertThat(result.pendingNightActionTargetId()).isEqualTo(target.getId());
-    }
-
-    @Test
-    void selectNightTarget_priestRevealsGoodAlignmentForVillager() {
-        Room room = room(4, 1, 1);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
-        room.setCurrentNightRole(Role.PRIEST);
-        room.setCurrentNightStepKind(NightStepKind.SELECT);
-        Player target = player(room, "V1", Role.VILLAGER, true);
-        mockMasterRoom(room);
-        mockPersistence(room, List.of(target));
-
-        MasterGameStateResponse result = gameService().selectNightTarget(CODE, MASTER_TOKEN, target.getId());
-
-        assertThat(result.nightActionResult()).isEqualTo(Alignment.GOOD);
-        assertThat(result.pendingNightActionTargetId()).isEqualTo(target.getId());
-    }
-
-    @Test
-    void selectNightTarget_priestRevealsEvilAlignmentForWerewolf() {
-        Room room = room(4, 1, 1);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
-        room.setCurrentNightRole(Role.PRIEST);
-        room.setCurrentNightStepKind(NightStepKind.SELECT);
-        Player target = player(room, "WOLF", Role.WEREWOLF, true);
-        mockMasterRoom(room);
-        mockPersistence(room, List.of(target));
-
-        MasterGameStateResponse result = gameService().selectNightTarget(CODE, MASTER_TOKEN, target.getId());
-
-        assertThat(result.nightActionResult()).isEqualTo(Alignment.EVIL);
-    }
-
-    // ---------- selectVoteVictim ----------
-
-    @Test
-    void selectVoteVictim_allowsNoOneVotedOut() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.VOTE_SELECT_TARGET);
-        mockMasterRoom(room);
-        mockPersistence(room, List.of());
-
-        MasterGameStateResponse result = gameService().selectVoteVictim(CODE, MASTER_TOKEN, null);
-
-        assertThat(result.pendingVoteVictimId()).isNull();
-    }
-
-    @Test
-    void selectVoteVictim_storesPendingVictim() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.VOTE_SELECT_TARGET);
-        Player target = player(room, "V1", Role.VILLAGER, true);
-        mockMasterRoom(room);
-        mockPersistence(room, List.of(target));
-
-        MasterGameStateResponse result = gameService().selectVoteVictim(CODE, MASTER_TOKEN, target.getId());
-
-        assertThat(result.pendingVoteVictimId()).isEqualTo(target.getId());
-    }
-
-    @Test
-    void selectVoteVictim_rejectsWhenGameOver() {
-        Room room = room(4, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.GAME_OVER);
-        mockMasterRoom(room);
-
-        assertThatThrownBy(() -> gameService().selectVoteVictim(CODE, MASTER_TOKEN, 1L))
-                .isInstanceOf(InvalidGamePhaseException.class);
-    }
-
-    // ---------- win conditions ----------
-
-    @Test
-    void advancePhase_goodWinsWhenLastWerewolfKilledByVote() {
-        Room room = room(3, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.VOTE_SELECT_TARGET);
-        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
-        Player v1 = player(room, "V1", Role.VILLAGER, true);
-        Player v2 = player(room, "V2", Role.VILLAGER, true);
-        room.setPendingVoteVictimId(wolf.getId());
-        List<Player> players = List.of(wolf, v1, v2);
-        mockMasterRoom(room);
-        mockPersistence(room, players);
+        when(playerRepository.findById(voted.getId())).thenReturn(Optional.of(voted));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.of(Alignment.GOOD));
 
         MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
 
         assertThat(result.phase()).isEqualTo(GamePhase.GAME_OVER);
         assertThat(result.winner()).isEqualTo(Alignment.GOOD);
-        assertThat(wolf.isAlive()).isFalse();
-    }
-
-    @Test
-    void advancePhase_evilWinsWhenWerewolvesEqualVillagersAfterVote() {
-        Room room = room(4, 2, 0);
-        room.start();
-        room.setPhase(GamePhase.VOTE_SELECT_TARGET);
-        Player wolf1 = player(room, "WOLF1", Role.WEREWOLF, true);
-        Player wolf2 = player(room, "WOLF2", Role.WEREWOLF, true);
-        Player v1 = player(room, "V1", Role.VILLAGER, true);
-        Player v2 = player(room, "V2", Role.VILLAGER, true);
-        room.setPendingVoteVictimId(v1.getId());
-        List<Player> players = List.of(wolf1, wolf2, v1, v2);
-        mockMasterRoom(room);
-        mockPersistence(room, players);
-
-        MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
-
-        assertThat(result.phase()).isEqualTo(GamePhase.GAME_OVER);
-        assertThat(result.winner()).isEqualTo(Alignment.EVIL);
+        assertThat(voted.isAlive()).isFalse();
     }
 
     @Test
     void advancePhase_continuesToNextRoundWhenNoWinnerAfterVote() {
-        Room room = room(5, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.VOTE_SELECT_TARGET);
+        Room room = startedRoom(GamePhase.VOTE_SELECT_TARGET);
         room.setRoundNumber(1);
-        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
-        Player v1 = player(room, "V1", Role.VILLAGER, true);
-        Player v2 = player(room, "V2", Role.VILLAGER, true);
-        Player v3 = player(room, "V3", Role.VILLAGER, true);
-        room.setPendingVoteVictimId(v1.getId());
-        List<Player> players = List.of(wolf, v1, v2, v3);
+        Player voted = player(room, "V1", Role.VILLAGER, true);
+        room.setPendingVoteVictimId(voted.getId());
         mockMasterRoom(room);
-        mockPersistence(room, players);
+        when(playerRepository.findById(voted.getId())).thenReturn(Optional.of(voted));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
 
         MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
 
         assertThat(result.phase()).isEqualTo(GamePhase.NIGHT_START);
         assertThat(result.roundNumber()).isEqualTo(2);
-        assertThat(v1.isAlive()).isFalse();
+        assertThat(voted.isAlive()).isFalse();
     }
 
     @Test
-    void advancePhase_endsGameImmediatelyWhenNightKillDecidesIt() {
-        Room room = room(2, 1, 0);
-        room.start();
-        room.setPhase(GamePhase.NIGHT_ACTIONS);
-        room.setCurrentNightRole(Role.WEREWOLF);
-        room.setCurrentNightStepKind(NightStepKind.SELECT);
-        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
-        Player lastVillager = player(room, "V1", Role.VILLAGER, true);
-        List<Player> players = List.of(wolf, lastVillager);
+    void advancePhase_allowsVoteResolutionWithNoOneVotedOut() {
+        Room room = startedRoom(GamePhase.VOTE_SELECT_TARGET);
         mockMasterRoom(room);
-        mockPersistence(room, players);
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
 
-        GameService gameService = gameService();
-        gameService.selectNightTarget(CODE, MASTER_TOKEN, lastVillager.getId());
-        MasterGameStateResponse result = gameService.advancePhase(CODE, MASTER_TOKEN);
+        MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
 
-        assertThat(result.phase()).isEqualTo(GamePhase.GAME_OVER);
-        assertThat(result.winner()).isEqualTo(Alignment.EVIL);
-    }
-
-    private void setId(Object entity, Long id) {
-        try {
-            var field = entity.getClass().getDeclaredField("id");
-            field.setAccessible(true);
-            field.set(entity, id);
-        } catch (ReflectiveOperationException e) {
-            throw new RuntimeException(e);
-        }
+        assertThat(result.phase()).isEqualTo(GamePhase.NIGHT_START);
     }
 }

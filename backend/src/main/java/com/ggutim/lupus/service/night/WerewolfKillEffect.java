@@ -1,5 +1,6 @@
-package com.ggutim.lupus.service;
+package com.ggutim.lupus.service.night;
 
+import com.ggutim.lupus.exception.InvalidGamePhaseException;
 import com.ggutim.lupus.model.Alignment;
 import com.ggutim.lupus.model.Player;
 import com.ggutim.lupus.model.Role;
@@ -22,5 +23,12 @@ class WerewolfKillEffect implements NightActionEffect {
     @Override
     public Optional<Alignment> apply(Player target) {
         return Optional.empty();
+    }
+
+    @Override
+    public void validateTarget(Player target) {
+        if (target.getRole() == Role.WEREWOLF) {
+            throw new InvalidGamePhaseException("Werewolves cannot select another werewolf as their victim");
+        }
     }
 }

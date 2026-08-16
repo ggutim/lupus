@@ -2,8 +2,10 @@ package com.ggutim.lupus.dto;
 
 import com.ggutim.lupus.model.Alignment;
 import com.ggutim.lupus.model.GamePhase;
+import com.ggutim.lupus.model.NightAction;
 import com.ggutim.lupus.model.NightStepKind;
 import com.ggutim.lupus.model.Role;
+import com.ggutim.lupus.model.Room;
 import java.util.List;
 
 /**
@@ -32,4 +34,26 @@ public record MasterGameStateResponse(
         Long pendingVoteVictimId,
         Alignment winner
 ) {
+
+    /**
+     * @param currentAction the resolved {@link NightAction} for {@code room}'s
+     *                      current night role, if any (null outside NIGHT_ACTIONS
+     *                      or before that role's selection resolves)
+     * @param lastNightVictimId the werewolves' recorded target this round, if any
+     */
+    public static MasterGameStateResponse from(Room room, List<MasterPlayerView> players,
+            NightAction currentAction, Long lastNightVictimId) {
+        return new MasterGameStateResponse(
+                room.getCode(),
+                room.getPhase(),
+                room.getRoundNumber(),
+                players,
+                room.getCurrentNightRole(),
+                room.getCurrentNightStepKind(),
+                currentAction == null ? null : currentAction.getTargetPlayerId(),
+                currentAction == null ? null : currentAction.getResultAlignment(),
+                lastNightVictimId,
+                room.getPendingVoteVictimId(),
+                room.getWinner());
+    }
 }

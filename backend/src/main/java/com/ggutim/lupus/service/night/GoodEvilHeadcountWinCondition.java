@@ -1,4 +1,4 @@
-package com.ggutim.lupus.service;
+package com.ggutim.lupus.service.night;
 
 import com.ggutim.lupus.model.Alignment;
 import com.ggutim.lupus.model.Player;

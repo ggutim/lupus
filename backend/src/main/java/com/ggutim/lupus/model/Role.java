@@ -7,7 +7,8 @@ package com.ggutim.lupus.model;
 public enum Role {
     VILLAGER(Alignment.GOOD),
     WEREWOLF(Alignment.EVIL),
-    PRIEST(Alignment.GOOD);
+    PRIEST(Alignment.GOOD),
+    GRAVEDIGGER(Alignment.GOOD);
 
     private final Alignment alignment;
 

@@ -1,6 +1,6 @@
 export type GameMode = 'CLASSIC'
 
-export type Role = 'VILLAGER' | 'WEREWOLF' | 'PRIEST'
+export type Role = 'VILLAGER' | 'WEREWOLF' | 'PRIEST' | 'GRAVEDIGGER'
 
 export type RoleCounts = Record<Role, number>
 
@@ -11,6 +11,7 @@ export interface CreateRoomRequest {
   playerCount: number
   werewolfCount: number
   priestCount: number
+  gravediggerCount: number
 }
 
 export interface Room {
