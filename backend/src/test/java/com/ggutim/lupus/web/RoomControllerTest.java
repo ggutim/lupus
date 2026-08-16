@@ -57,7 +57,7 @@ class RoomControllerTest {
         var result = mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0}
+                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0}
                         """)
                 .assertThat()
                 .hasStatus(201);
@@ -74,7 +74,7 @@ class RoomControllerTest {
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":3,"werewolfCount":1,"priestCount":0,"gravediggerCount":0,"idiotCount":0}
+                        {"gameMode":"CLASSIC","playerCount":3,"werewolfCount":1,"priestCount":0,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0}
                         """)
                 .assertThat()
                 .hasStatus(400);
@@ -89,10 +89,21 @@ class RoomControllerTest {
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":4,"werewolfCount":1,"priestCount":0,"gravediggerCount":0,"idiotCount":0}
+                        {"gameMode":"CLASSIC","playerCount":4,"werewolfCount":1,"priestCount":0,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0}
                         """)
                 .assertThat()
                 .hasStatus(201);
+    }
+
+    @Test
+    void createRoom_rejectsMoreThanOneCorruptedJudge() {
+        mvc.post().uri("/api/rooms")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":2}
+                        """)
+                .assertThat()
+                .hasStatus(400);
     }
 
     @Test

@@ -186,14 +186,15 @@ public class GameService {
     }
 
     /**
-     * Resolves the night's werewolf kill (deferred until now — see
-     * {@link NightEngine#resolveDeferredKillAndClearState}), checks
-     * for a winner, and enters MORNING_REVEAL if the game continues.
+     * Resolves the night's deferred kills (werewolves', and the
+     * corrupted judge's when active — see {@link
+     * NightEngine#resolveDeferredKillsAndClearState}), checks for a
+     * winner, and enters MORNING_REVEAL if the game continues.
      */
     private void resolveNightAndEnterMorningReveal(Room room) {
-        Long victimId = nightEngine.resolveDeferredKillAndClearState(room);
+        List<Long> victimIds = nightEngine.resolveDeferredKillsAndClearState(room);
 
-        if (resolveWinnerIfAny(room, new RoundEvent(RoundEvent.Cause.NIGHT_KILL, victimId))) {
+        if (resolveWinnerIfAny(room, new RoundEvent(RoundEvent.Cause.NIGHT_KILL, victimIds))) {
             return;
         }
 
@@ -210,7 +211,11 @@ public class GameService {
         }
         room.setPendingVoteVictimId(null);
 
-        if (resolveWinnerIfAny(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL, voteVictimId))) {
+        // Public trigger for the corrupted judge's conditional night turn — see NightActionEffect#isEligibleThisRound.
+        room.setNoOneVotedOutPreviousDay(voteVictimId == null);
+
+        if (resolveWinnerIfAny(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL,
+                voteVictimId == null ? List.of() : List.of(voteVictimId)))) {
             return;
         }
 
@@ -291,11 +296,9 @@ public class GameService {
         NightAction currentAction = room.getCurrentNightRole() == null ? null
                 : nightEngine.findAction(room, room.getCurrentNightRole()).orElse(null);
 
-        Long lastNightVictimId = nightEngine.findAction(room, Role.WEREWOLF)
-                .map(NightAction::getTargetPlayerId)
-                .orElse(null);
+        List<Long> lastNightVictimIds = nightEngine.findLastNightVictims(room);
 
-        return MasterGameStateResponse.from(room, players, currentAction, lastNightVictimId);
+        return MasterGameStateResponse.from(room, players, currentAction, lastNightVictimIds);
     }
 
     private void broadcastGameUpdated(Room room) {

@@ -64,6 +64,19 @@ export function IdiotIcon(props: IconProps) {
   )
 }
 
+export function CorruptedJudgeIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <rect x="10" y="42" width="24" height="7" rx="2" fill="currentColor" transform="rotate(-35 10 42)" />
+      <rect x="30" y="14" width="12" height="20" rx="2" fill="currentColor" transform="rotate(-35 30 14)" />
+      <rect x="40" y="6" width="18" height="7" rx="2" fill="currentColor" transform="rotate(-35 40 6)" />
+      <path d="M46 34c4 4 6 10 4 14" stroke="#1a1108" strokeWidth="2.4" strokeLinecap="round" fill="none" />
+      <path d="M9 50l-3 6h14l-3-6" fill="currentColor" />
+      <circle cx="47" cy="14" r="2" fill="#1a1108" />
+    </svg>
+  )
+}
+
 export function VillagerIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>

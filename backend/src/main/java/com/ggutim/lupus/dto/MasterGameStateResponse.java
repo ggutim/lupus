@@ -30,7 +30,7 @@ public record MasterGameStateResponse(
         NightStepKind currentNightStepKind,
         Long pendingNightActionTargetId,
         Alignment nightActionResult,
-        Long lastNightVictimId,
+        List<Long> lastNightVictimIds,
         Long pendingVoteVictimId,
         Alignment winner,
         Role winningRole
@@ -40,10 +40,12 @@ public record MasterGameStateResponse(
      * @param currentAction the resolved {@link NightAction} for {@code room}'s
      *                      current night role, if any (null outside NIGHT_ACTIONS
      *                      or before that role's selection resolves)
-     * @param lastNightVictimId the werewolves' recorded target this round, if any
+     * @param lastNightVictimIds every deferred-kill role's recorded target this
+     *                           round (werewolves', and the corrupted judge's
+     *                           when active) — empty when nobody died
      */
     public static MasterGameStateResponse from(Room room, List<MasterPlayerView> players,
-            NightAction currentAction, Long lastNightVictimId) {
+            NightAction currentAction, List<Long> lastNightVictimIds) {
         return new MasterGameStateResponse(
                 room.getCode(),
                 room.getPhase(),
@@ -53,7 +55,7 @@ public record MasterGameStateResponse(
                 room.getCurrentNightStepKind(),
                 currentAction == null ? null : currentAction.getTargetPlayerId(),
                 currentAction == null ? null : currentAction.getResultAlignment(),
-                lastNightVictimId,
+                lastNightVictimIds,
                 room.getPendingVoteVictimId(),
                 room.getWinner(),
                 room.getWinningRole());

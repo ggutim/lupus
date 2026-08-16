@@ -179,7 +179,7 @@ class GameServiceTest {
     }
 
     @Test
-    void getGameState_includesNightActionResultAndLastVictimFromNightEngine() {
+    void getGameState_includesNightActionResultAndLastVictimsFromNightEngine() {
         Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
         room.setCurrentNightRole(Role.PRIEST);
         room.setCurrentNightStepKind(NightStepKind.SELECT);
@@ -190,15 +190,13 @@ class GameServiceTest {
         priestAction.setResultAlignment(Alignment.EVIL);
         when(nightEngine.findAction(room, Role.PRIEST)).thenReturn(Optional.of(priestAction));
 
-        NightAction werewolfAction = new NightAction(room, room.getRoundNumber(), Role.WEREWOLF);
-        werewolfAction.setTargetPlayerId(7L);
-        when(nightEngine.findAction(room, Role.WEREWOLF)).thenReturn(Optional.of(werewolfAction));
+        when(nightEngine.findLastNightVictims(room)).thenReturn(List.of(7L, 8L));
 
         MasterGameStateResponse state = gameService().getGameState(CODE, MASTER_TOKEN);
 
         assertThat(state.pendingNightActionTargetId()).isEqualTo(42L);
         assertThat(state.nightActionResult()).isEqualTo(Alignment.EVIL);
-        assertThat(state.lastNightVictimId()).isEqualTo(7L);
+        assertThat(state.lastNightVictimIds()).containsExactly(7L, 8L);
     }
 
     // ---------- getVillageOverview ----------
@@ -357,7 +355,7 @@ class GameServiceTest {
 
         MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
 
-        verify(nightEngine).resolveDeferredKillAndClearState(room);
+        verify(nightEngine).resolveDeferredKillsAndClearState(room);
         assertThat(result.phase()).isEqualTo(GamePhase.MORNING_REVEAL);
     }
 
@@ -383,8 +381,8 @@ class GameServiceTest {
         room.setCurrentNightStepKind(NightStepKind.SELECT);
         mockMasterRoom(room);
         when(nightEngine.nextRole(room, Role.WEREWOLF)).thenReturn(Optional.empty());
-        when(nightEngine.resolveDeferredKillAndClearState(room)).thenReturn(99L);
-        when(soloWinEvaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.NIGHT_KILL, 99L)))
+        when(nightEngine.resolveDeferredKillsAndClearState(room)).thenReturn(List.of(99L));
+        when(soloWinEvaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.NIGHT_KILL, List.of(99L))))
                 .thenReturn(Optional.of(Role.IDIOT));
 
         MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
@@ -451,7 +449,7 @@ class GameServiceTest {
         room.setPendingVoteVictimId(voted.getId());
         mockMasterRoom(room);
         when(playerRepository.findById(voted.getId())).thenReturn(Optional.of(voted));
-        when(soloWinEvaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL, voted.getId())))
+        when(soloWinEvaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL, List.of(voted.getId()))))
                 .thenReturn(Optional.of(Role.IDIOT));
 
         MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
@@ -503,5 +501,31 @@ class GameServiceTest {
         MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
 
         assertThat(result.phase()).isEqualTo(GamePhase.NIGHT_START);
+    }
+
+    @Test
+    void advancePhase_setsNoOneVotedOutPreviousDayWhenNoOneWasVotedOut() {
+        Room room = startedRoom(GamePhase.VOTE_SELECT_TARGET);
+        mockMasterRoom(room);
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
+
+        gameService().advancePhase(CODE, MASTER_TOKEN);
+
+        assertThat(room.isNoOneVotedOutPreviousDay()).isTrue();
+    }
+
+    @Test
+    void advancePhase_clearsNoOneVotedOutPreviousDayWhenSomeoneWasVotedOut() {
+        Room room = startedRoom(GamePhase.VOTE_SELECT_TARGET);
+        room.setNoOneVotedOutPreviousDay(true);
+        Player voted = player(room, "V1", Role.VILLAGER, true);
+        room.setPendingVoteVictimId(voted.getId());
+        mockMasterRoom(room);
+        when(playerRepository.findById(voted.getId())).thenReturn(Optional.of(voted));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
+
+        gameService().advancePhase(CODE, MASTER_TOKEN);
+
+        assertThat(room.isNoOneVotedOutPreviousDay()).isFalse();
     }
 }

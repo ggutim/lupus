@@ -5,5 +5,6 @@ export const ROLE_LABELS: Record<Role, string> = {
   PRIEST: 'Sacerdote',
   GRAVEDIGGER: 'Becchino',
   IDIOT: 'Idiota',
+  CORRUPTED_JUDGE: 'Giudice corrotto',
   VILLAGER: 'Contadino',
 }

@@ -23,11 +23,17 @@ class IdiotVotedOutSoloWin implements SoloWinCondition {
 
     @Override
     public Optional<Role> check(Room room, RoundEvent event) {
-        if (event.cause() != RoundEvent.Cause.VOTE_KILL || event.victimPlayerId() == null) {
+        if (event.cause() != RoundEvent.Cause.VOTE_KILL) {
             return Optional.empty();
         }
-        return playerRepository.findById(event.victimPlayerId())
-                .filter(player -> player.getRole() == Role.IDIOT)
-                .map(Player::getRole);
+        for (Long victimId : event.victimPlayerIds()) {
+            Optional<Role> idiot = playerRepository.findById(victimId)
+                    .filter(player -> player.getRole() == Role.IDIOT)
+                    .map(Player::getRole);
+            if (idiot.isPresent()) {
+                return idiot;
+            }
+        }
+        return Optional.empty();
     }
 }

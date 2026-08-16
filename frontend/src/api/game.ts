@@ -29,7 +29,7 @@ export interface MasterGameState {
   currentNightStepKind: NightStepKind | null
   pendingNightActionTargetId: number | null
   nightActionResult: Alignment | null
-  lastNightVictimId: number | null
+  lastNightVictimIds: number[]
   pendingVoteVictimId: number | null
   winner: Alignment | null
   winningRole: Role | null

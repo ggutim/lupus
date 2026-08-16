@@ -15,7 +15,16 @@ import { subscribeToGame } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
 import VillageOverviewDialog from '../components/VillageOverviewDialog'
 import { useDialog } from '../components/useDialog'
-import { EyeIcon, GravediggerIcon, MoonIcon, PriestIcon, SkullIcon, SunIcon, WerewolfIcon } from '../components/icons'
+import {
+  CorruptedJudgeIcon,
+  EyeIcon,
+  GravediggerIcon,
+  MoonIcon,
+  PriestIcon,
+  SkullIcon,
+  SunIcon,
+  WerewolfIcon,
+} from '../components/icons'
 import type { ReactNode } from 'react'
 
 interface CardContent {
@@ -73,6 +82,13 @@ const NIGHT_ROLE_CONTENT: Partial<Record<Role, NightRoleContent>> = {
       </>
     ),
   },
+  CORRUPTED_JUDGE: {
+    icon: <CorruptedJudgeIcon />,
+    wakeUpTitle: 'Il giudice corrotto si sveglia',
+    wakeUpBody: 'Nessuno è stato eliminato oggi: il giudice corrotto apre gli occhi e decide se colpire.',
+    selectTitle: 'Chi ha scelto il giudice corrotto?',
+    selectPrompt: 'Seleziona dalla tavola il giocatore scelto, oppure avanza se non vuole scegliere.',
+  },
 }
 
 function playerName(players: MasterPlayerView[], id: number | null): string {
@@ -101,7 +117,7 @@ function buildNightActionsCard(state: MasterGameState): CardContent {
 }
 
 function buildCard(state: MasterGameState): CardContent {
-  const { phase, players, lastNightVictimId, winner, winningRole } = state
+  const { phase, players, lastNightVictimIds, winner, winningRole } = state
 
   switch (phase) {
     case 'ROLES_ASSIGNED':
@@ -118,14 +134,18 @@ function buildCard(state: MasterGameState): CardContent {
       }
     case 'NIGHT_ACTIONS':
       return buildNightActionsCard(state)
-    case 'MORNING_REVEAL':
-      return {
-        icon: <SunIcon />,
-        title: 'Il villaggio si sveglia',
-        body: lastNightVictimId
-          ? `Questa notte è morto/a ${playerName(players, lastNightVictimId)}.`
-          : 'Questa notte nessuno è morto.',
+    case 'MORNING_REVEAL': {
+      const victimNames = lastNightVictimIds.map((id) => playerName(players, id))
+      let body: string
+      if (victimNames.length === 0) {
+        body = 'Questa notte nessuno è morto.'
+      } else if (victimNames.length === 1) {
+        body = `Questa notte è morto/a ${victimNames[0]}.`
+      } else {
+        body = `Questa notte sono morti/e ${victimNames.join(' e ')}.`
       }
+      return { icon: <SunIcon />, title: 'Il villaggio si sveglia', body }
+    }
     case 'DISCUSSION':
       return {
         icon: <SunIcon />,
@@ -157,21 +177,27 @@ function buildCard(state: MasterGameState): CardContent {
 }
 
 /**
- * Whether a living player still holds {@code role}, excluding whoever
- * the werewolves have already picked as this round's victim (that
- * kill isn't applied until morning) — mirrors the backend's
- * roleHasSelectableHolder so the "Avanti" button doesn't stay
- * disabled waiting for a selection nobody can make.
+ * Whether a living player still holds {@code role}, excluding whoever's
+ * already been picked as a pending deferred-kill target this round
+ * (werewolves' or the corrupted judge's) — those kills aren't applied
+ * until morning — mirrors the backend's roleHasSelectableHolder so the
+ * "Avanti" button doesn't stay disabled waiting for a selection nobody
+ * can make.
  */
 function roleHasSelectableHolder(state: MasterGameState, role: Role): boolean {
   return state.players.some(
-    (player) => player.alive && player.id !== state.lastNightVictimId && player.role === role,
+    (player) => player.alive && !state.lastNightVictimIds.includes(player.id) && player.role === role,
   )
 }
 
 /** Roles targeting the dead rather than the living, e.g. the gravedigger. */
 function roleTargetsDeadPlayers(role: Role): boolean {
   return role === 'GRAVEDIGGER'
+}
+
+/** Roles whose power is optional even when a target is available — mirrors the backend's requiresSelection. */
+function roleRequiresSelection(role: Role): boolean {
+  return role !== 'CORRUPTED_JUDGE'
 }
 
 /**
@@ -248,12 +274,14 @@ function MasterGamePage() {
   const card = buildCard(state)
   const isNightSelectStep = state.phase === 'NIGHT_ACTIONS' && state.currentNightStepKind === 'SELECT'
   const isVotePhase = state.phase === 'VOTE_SELECT_TARGET'
-  const nightSelectionRequired =
+  const canSelectTonight =
     isNightSelectStep &&
     state.currentNightRole !== null &&
     roleHasSelectableHolder(state, state.currentNightRole) &&
     hasEligibleNightTarget(state, state.currentNightRole)
-  const showSelectionGrid = (isNightSelectStep && nightSelectionRequired) || isVotePhase
+  const nightSelectionRequired =
+    canSelectTonight && state.currentNightRole !== null && roleRequiresSelection(state.currentNightRole)
+  const showSelectionGrid = canSelectTonight || isVotePhase
   const selectedId = isNightSelectStep
     ? state.pendingNightActionTargetId
     : isVotePhase

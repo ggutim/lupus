@@ -54,14 +54,15 @@ class SoloWinEvaluatorTest {
                 (room, event) -> Optional.of(Role.IDIOT),
                 (room, event) -> Optional.of(Role.VILLAGER)));
 
-        assertThat(evaluator.evaluate(room(), new RoundEvent(RoundEvent.Cause.VOTE_KILL, 1L))).contains(Role.IDIOT);
+        assertThat(evaluator.evaluate(room(), new RoundEvent(RoundEvent.Cause.VOTE_KILL, List.of(1L))))
+                .contains(Role.IDIOT);
     }
 
     @Test
     void evaluate_returnsEmptyWhenNoConditionMatches() {
         SoloWinEvaluator evaluator = new SoloWinEvaluator(List.of((room, event) -> Optional.empty()));
 
-        assertThat(evaluator.evaluate(room(), new RoundEvent(RoundEvent.Cause.VOTE_KILL, 1L))).isEmpty();
+        assertThat(evaluator.evaluate(room(), new RoundEvent(RoundEvent.Cause.VOTE_KILL, List.of(1L)))).isEmpty();
     }
 
     @Test
@@ -72,7 +73,7 @@ class SoloWinEvaluatorTest {
 
         SoloWinEvaluator evaluator = new SoloWinEvaluator(List.of(new IdiotVotedOutSoloWin(playerRepository)));
 
-        assertThat(evaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL, idiot.getId())))
+        assertThat(evaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL, List.of(idiot.getId()))))
                 .contains(Role.IDIOT);
     }
 
@@ -83,7 +84,7 @@ class SoloWinEvaluatorTest {
 
         SoloWinEvaluator evaluator = new SoloWinEvaluator(List.of(new IdiotVotedOutSoloWin(playerRepository)));
 
-        assertThat(evaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.NIGHT_KILL, idiot.getId())))
+        assertThat(evaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.NIGHT_KILL, List.of(idiot.getId()))))
                 .isEmpty();
     }
 
@@ -95,7 +96,7 @@ class SoloWinEvaluatorTest {
 
         SoloWinEvaluator evaluator = new SoloWinEvaluator(List.of(new IdiotVotedOutSoloWin(playerRepository)));
 
-        assertThat(evaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL, villager.getId())))
+        assertThat(evaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL, List.of(villager.getId()))))
                 .isEmpty();
     }
 
@@ -105,6 +106,6 @@ class SoloWinEvaluatorTest {
 
         SoloWinEvaluator evaluator = new SoloWinEvaluator(List.of(new IdiotVotedOutSoloWin(playerRepository)));
 
-        assertThat(evaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL, null))).isEmpty();
+        assertThat(evaluator.evaluate(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL, List.of()))).isEmpty();
     }
 }

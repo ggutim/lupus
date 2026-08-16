@@ -1,14 +1,15 @@
 package com.ggutim.lupus.dto;
 
 import com.ggutim.lupus.model.GameMode;
+import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotNull;
 
 /**
  * Payload sent by the master at the end of the room-creation wizard:
  * game mode, total player count, and the number of werewolves, priests,
- * gravediggers and idiots. The remaining players are assigned the
- * villager role.
+ * gravediggers, idiots and corrupted judges. The remaining players are
+ * assigned the villager role.
  *
  * <p>The allowed range for {@code playerCount} is configurable (see
  * {@link com.ggutim.lupus.config.GameRules}) and is therefore validated in
@@ -36,6 +37,11 @@ public record CreateRoomRequest(
 
         @NotNull(message = "idiotCount is required")
         @Min(value = 0, message = "idiotCount must be at least 0")
-        Integer idiotCount
+        Integer idiotCount,
+
+        @NotNull(message = "corruptedJudgeCount is required")
+        @Min(value = 0, message = "corruptedJudgeCount must be at least 0")
+        @Max(value = 1, message = "corruptedJudgeCount cannot be more than 1")
+        Integer corruptedJudgeCount
 ) {
 }

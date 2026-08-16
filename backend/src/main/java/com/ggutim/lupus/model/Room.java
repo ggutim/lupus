@@ -84,6 +84,15 @@ public class Room {
     @Enumerated(EnumType.STRING)
     private Role winningRole;
 
+    /**
+     * Whether the previous day's vote failed to eliminate anyone —
+     * the public trigger for the corrupted judge's conditional night
+     * turn. Defaults to {@code false}, so round 1's night (no prior
+     * day exists yet) never has it eligible.
+     */
+    @Column(nullable = false)
+    private boolean noOneVotedOutPreviousDay;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -193,6 +202,14 @@ public class Room {
 
     public void setWinningRole(Role winningRole) {
         this.winningRole = winningRole;
+    }
+
+    public boolean isNoOneVotedOutPreviousDay() {
+        return noOneVotedOutPreviousDay;
+    }
+
+    public void setNoOneVotedOutPreviousDay(boolean noOneVotedOutPreviousDay) {
+        this.noOneVotedOutPreviousDay = noOneVotedOutPreviousDay;
     }
 
     public Instant getCreatedAt() {

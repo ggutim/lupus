@@ -9,7 +9,7 @@
 | 5  | Narrate only mode, so player don't have to register to the session                                          | BACKLOG |
 | 6  | Implement afterlife mode, introducing "ghost" and "angel" roles                                             | BACKLOG |
 | 7  | Card given to a player should be hidden by default. Discover only on tap                                    | DONE    |
-| 8  | New evil role: "corrupted judge"                                                                            | BACKLOG |
+| 8  | New evil role: "corrupted judge"                                                                            | DONE    |
 | 9  | New evil role: "killer"                                                                                     | BACKLOG |
 | 10 | New good role: "gravedigger"                                                                                | DONE    |
 | 11 | New good role: "survivor"                                                                                   | BACKLOG |

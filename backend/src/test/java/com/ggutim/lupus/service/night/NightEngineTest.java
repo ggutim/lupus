@@ -53,8 +53,8 @@ class NightEngineTest {
                 Optional.ofNullable(store.get(key(
                         invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2)))));
 
-        List<NightActionEffect> effects =
-                List.of(new WerewolfKillEffect(), new PriestInspectEffect(), new GravediggerInspectEffect());
+        List<NightActionEffect> effects = List.of(new WerewolfKillEffect(), new PriestInspectEffect(),
+                new GravediggerInspectEffect(), new CorruptedJudgeKillEffect());
         return new NightEngine(nightActionRepository, playerRepository, effects);
     }
 
@@ -63,9 +63,13 @@ class NightEngineTest {
     }
 
     private Room room(int werewolfCount, int priestCount, int gravediggerCount) {
+        return room(werewolfCount, priestCount, gravediggerCount, 0);
+    }
+
+    private Room room(int werewolfCount, int priestCount, int gravediggerCount, int corruptedJudgeCount) {
         Room room = new Room(CODE, "token", GameMode.CLASSIC, 10, Map.of(
                 Role.WEREWOLF, werewolfCount, Role.PRIEST, priestCount,
-                Role.GRAVEDIGGER, gravediggerCount, Role.VILLAGER, 0));
+                Role.GRAVEDIGGER, gravediggerCount, Role.CORRUPTED_JUDGE, corruptedJudgeCount, Role.VILLAGER, 0));
         setId(room, nextId++);
         return room;
     }
@@ -131,6 +135,22 @@ class NightEngineTest {
         assertThat(nightEngine().nextRole(room, Role.WEREWOLF)).isEmpty();
     }
 
+    @Test
+    void nextRole_skipsCorruptedJudgeWhenPreviousDayHadAnElimination() {
+        Room room = room(1, 0, 0, 1);
+        room.setNoOneVotedOutPreviousDay(false);
+
+        assertThat(nightEngine().nextRole(room, Role.WEREWOLF)).isEmpty();
+    }
+
+    @Test
+    void nextRole_includesCorruptedJudgeWhenPreviousDayHadNoElimination() {
+        Room room = room(1, 0, 0, 1);
+        room.setNoOneVotedOutPreviousDay(true);
+
+        assertThat(nightEngine().nextRole(room, Role.WEREWOLF)).contains(Role.CORRUPTED_JUDGE);
+    }
+
     // ---------- requireSelectionIfNeeded ----------
 
     @Test
@@ -185,6 +205,17 @@ class NightEngineTest {
                 .isInstanceOf(InvalidGamePhaseException.class);
     }
 
+    @Test
+    void requireSelectionIfNeeded_neverThrowsForCorruptedJudgeEvenWhenHolderAliveAndTargetExists() {
+        Room room = room(0, 0, 0, 1);
+        room.setNoOneVotedOutPreviousDay(true);
+        Player judge = player(room, "JUDGE", Role.CORRUPTED_JUDGE, true);
+        Player v1 = player(room, "V1", Role.VILLAGER, true);
+        mockPlayers(room, List.of(judge, v1));
+
+        nightEngine().requireSelectionIfNeeded(room, Role.CORRUPTED_JUDGE);
+    }
+
     // ---------- recordSelection ----------
 
     @Test
@@ -224,6 +255,19 @@ class NightEngineTest {
 
         assertThatThrownBy(() -> nightEngine().recordSelection(room, Role.WEREWOLF, otherWolf.getId()))
                 .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void recordSelection_allowsCorruptedJudgeToTargetAWerewolf() {
+        Room room = room(1, 0, 0, 1);
+        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
+        mockPlayers(room, List.of(wolf));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.CORRUPTED_JUDGE, wolf.getId());
+
+        assertThat(engine.findAction(room, Role.CORRUPTED_JUDGE))
+                .get().extracting(NightAction::getTargetPlayerId).isEqualTo(wolf.getId());
     }
 
     @Test
@@ -306,39 +350,86 @@ class NightEngineTest {
                 .get().extracting(NightAction::getTargetPlayerId).isEqualTo(v2.getId());
     }
 
-    // ---------- resolveDeferredKillAndClearState ----------
+    // ---------- resolveDeferredKillsAndClearState ----------
 
     @Test
-    void resolveDeferredKillAndClearState_killsRecordedWerewolfVictimAndReturnsItsId() {
+    void resolveDeferredKillsAndClearState_killsRecordedWerewolfVictimAndReturnsItsId() {
         Room room = room(1, 0, 0);
         Player victim = player(room, "V1", Role.VILLAGER, true);
         mockPlayers(room, List.of(victim));
 
         NightEngine engine = nightEngine();
         engine.recordSelection(room, Role.WEREWOLF, victim.getId());
-        Long victimId = engine.resolveDeferredKillAndClearState(room);
+        List<Long> victimIds = engine.resolveDeferredKillsAndClearState(room);
 
         assertThat(victim.isAlive()).isFalse();
-        assertThat(victimId).isEqualTo(victim.getId());
+        assertThat(victimIds).containsExactly(victim.getId());
     }
 
     @Test
-    void resolveDeferredKillAndClearState_noOpAndReturnsNullWhenNoVictimRecorded() {
+    void resolveDeferredKillsAndClearState_returnsEmptyWhenNoVictimRecorded() {
         Room room = room(1, 0, 0);
 
-        assertThat(nightEngine().resolveDeferredKillAndClearState(room)).isNull();
+        assertThat(nightEngine().resolveDeferredKillsAndClearState(room)).isEmpty();
     }
 
     @Test
-    void resolveDeferredKillAndClearState_clearsCurrentNightRoleAndStepKind() {
+    void resolveDeferredKillsAndClearState_clearsCurrentNightRoleAndStepKind() {
         Room room = room(1, 0, 0);
         room.setCurrentNightRole(Role.WEREWOLF);
         room.setCurrentNightStepKind(NightStepKind.SELECT);
 
-        nightEngine().resolveDeferredKillAndClearState(room);
+        nightEngine().resolveDeferredKillsAndClearState(room);
 
         assertThat(room.getCurrentNightRole()).isNull();
         assertThat(room.getCurrentNightStepKind()).isNull();
+    }
+
+    @Test
+    void resolveDeferredKillsAndClearState_returnsBothVictimsWhenWerewolfAndJudgeTargetDifferentPlayers() {
+        Room room = room(1, 0, 0, 1);
+        Player wolfVictim = player(room, "V1", Role.VILLAGER, true);
+        Player judgeVictim = player(room, "V2", Role.VILLAGER, true);
+        mockPlayers(room, List.of(wolfVictim, judgeVictim));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.WEREWOLF, wolfVictim.getId());
+        engine.recordSelection(room, Role.CORRUPTED_JUDGE, judgeVictim.getId());
+        List<Long> victimIds = engine.resolveDeferredKillsAndClearState(room);
+
+        assertThat(wolfVictim.isAlive()).isFalse();
+        assertThat(judgeVictim.isAlive()).isFalse();
+        assertThat(victimIds).containsExactlyInAnyOrder(wolfVictim.getId(), judgeVictim.getId());
+    }
+
+    @Test
+    void resolveDeferredKillsAndClearState_dedupesWhenWerewolfAndJudgeTargetTheSamePlayer() {
+        Room room = room(1, 0, 0, 1);
+        Player victim = player(room, "V1", Role.VILLAGER, true);
+        mockPlayers(room, List.of(victim));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.WEREWOLF, victim.getId());
+        engine.recordSelection(room, Role.CORRUPTED_JUDGE, victim.getId());
+        List<Long> victimIds = engine.resolveDeferredKillsAndClearState(room);
+
+        assertThat(victim.isAlive()).isFalse();
+        assertThat(victimIds).containsExactly(victim.getId());
+    }
+
+    // ---------- findLastNightVictims ----------
+
+    @Test
+    void findLastNightVictims_returnsRecordedTargetsWithoutApplyingTheKill() {
+        Room room = room(1, 0, 0);
+        Player victim = player(room, "V1", Role.VILLAGER, true);
+        mockPlayers(room, List.of(victim));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.WEREWOLF, victim.getId());
+
+        assertThat(engine.findLastNightVictims(room)).containsExactly(victim.getId());
+        assertThat(victim.isAlive()).isTrue();
     }
 
     // ---------- findAction ----------

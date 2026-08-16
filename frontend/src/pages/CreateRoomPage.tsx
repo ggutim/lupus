@@ -5,7 +5,15 @@ import { storeMasterToken } from '../api/masterToken'
 import { MAX_PLAYERS, MIN_PLAYERS } from '../api/gameRules'
 import BoardPanel from '../components/BoardPanel'
 import RoleCard from '../components/RoleCard'
-import { GravediggerIcon, IdiotIcon, MeepleIcon, PriestIcon, VillagerIcon, WerewolfIcon } from '../components/icons'
+import {
+  CorruptedJudgeIcon,
+  GravediggerIcon,
+  IdiotIcon,
+  MeepleIcon,
+  PriestIcon,
+  VillagerIcon,
+  WerewolfIcon,
+} from '../components/icons'
 
 type Step = 'mode' | 'players' | 'roles'
 
@@ -46,12 +54,17 @@ function CreateRoomPage() {
   const [priestCount, setPriestCount] = useState(1)
   const [gravediggerCount, setGravediggerCount] = useState(0)
   const [idiotCount, setIdiotCount] = useState(0)
+  const [corruptedJudgeCount, setCorruptedJudgeCount] = useState(0)
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const villagerCount = Math.max(playerCount - werewolfCount - priestCount - gravediggerCount - idiotCount, 0)
-  const rolesExceedPlayers = werewolfCount + priestCount + gravediggerCount + idiotCount > playerCount
+  const villagerCount = Math.max(
+    playerCount - werewolfCount - priestCount - gravediggerCount - idiotCount - corruptedJudgeCount,
+    0,
+  )
+  const rolesExceedPlayers =
+    werewolfCount + priestCount + gravediggerCount + idiotCount + corruptedJudgeCount > playerCount
 
   const handleCreateRoom = async () => {
     setError(null)
@@ -64,6 +77,7 @@ function CreateRoomPage() {
         priestCount,
         gravediggerCount,
         idiotCount,
+        corruptedJudgeCount,
       })
       storeMasterToken(room.code, room.masterToken)
       navigate(`/room/${room.code}`)
@@ -166,6 +180,14 @@ function CreateRoomPage() {
               count={idiotCount}
               min={0}
               onChange={setIdiotCount}
+            />
+            <RoleCard
+              icon={<CorruptedJudgeIcon />}
+              label="Giudice corrotto"
+              count={corruptedJudgeCount}
+              min={0}
+              max={1}
+              onChange={setCorruptedJudgeCount}
             />
             <RoleCard icon={<VillagerIcon />} label="Contadini" count={villagerCount} readOnly />
           </div>

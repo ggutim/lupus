@@ -31,4 +31,9 @@ class WerewolfKillEffect implements NightActionEffect {
             throw new InvalidGamePhaseException("Werewolves cannot select another werewolf as their victim");
         }
     }
+
+    @Override
+    public boolean isDeferredKill() {
+        return true;
+    }
 }

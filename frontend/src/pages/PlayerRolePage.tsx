@@ -6,7 +6,16 @@ import { subscribeToGame } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
 import VillageOverviewDialog from '../components/VillageOverviewDialog'
 import { useDialog } from '../components/useDialog'
-import { GravediggerIcon, IdiotIcon, MeepleIcon, PriestIcon, SkullIcon, VillagerIcon, WerewolfIcon } from '../components/icons'
+import {
+  CorruptedJudgeIcon,
+  GravediggerIcon,
+  IdiotIcon,
+  MeepleIcon,
+  PriestIcon,
+  SkullIcon,
+  VillagerIcon,
+  WerewolfIcon,
+} from '../components/icons'
 import { ROLE_LABELS } from '../roleLabels'
 
 const ROLE_INFO: Record<Role, { description: string; icon: ReactNode }> = {
@@ -25,6 +34,10 @@ const ROLE_INFO: Record<Role, { description: string; icon: ReactNode }> = {
   IDIOT: {
     description: 'Non hai poteri e giochi per te stesso. Se il villaggio ti elimina con il voto, vinci da solo!',
     icon: <IdiotIcon />,
+  },
+  CORRUPTED_JUDGE: {
+    description: 'Se durante il giorno nessuno viene eliminato dal voto, la notte seguente puoi eliminare chi vuoi, anche un lupo.',
+    icon: <CorruptedJudgeIcon />,
   },
   VILLAGER: {
     description: 'Non hai poteri speciali: osserva, discuti e vota con attenzione.',

@@ -3,6 +3,7 @@ package com.ggutim.lupus.service.night;
 import com.ggutim.lupus.model.Alignment;
 import com.ggutim.lupus.model.Player;
 import com.ggutim.lupus.model.Role;
+import com.ggutim.lupus.model.Room;
 import java.util.Optional;
 
 /**
@@ -47,5 +48,40 @@ public interface NightActionEffect {
      * No-op by default.
      */
     default void validateTarget(Player target) {
+    }
+
+    /**
+     * Whether this role's kill is resolved once the room leaves
+     * {@code NIGHT_ACTIONS} rather than immediately on selection (see
+     * {@link WerewolfKillEffect}) — and therefore counted among the
+     * round's reported deaths. {@code false} for non-kill effects
+     * (e.g. the priest's reveal).
+     */
+    default boolean isDeferredKill() {
+        return false;
+    }
+
+    /**
+     * Whether the master must make a selection for this role before
+     * advancing, whenever it has a living holder and an eligible
+     * target. {@code true} for every role today; a role whose power
+     * is optional (e.g. the corrupted judge "can decide if kill
+     * somebody or not") overrides this to {@code false}.
+     */
+    default boolean requiresSelection() {
+        return true;
+    }
+
+    /**
+     * Whether this role is even part of tonight's sequence at all —
+     * distinct from having a living holder or an eligible target.
+     * {@code true} for every role today; a role whose turn only
+     * exists on some nights (e.g. the corrupted judge, gated on
+     * whether anyone was voted out the previous day — a fact already
+     * public at the table, unlike a role's living/dead status) checks
+     * {@code room} here.
+     */
+    default boolean isEligibleThisRound(Room room) {
+        return true;
     }
 }
