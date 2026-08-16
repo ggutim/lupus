@@ -13,6 +13,7 @@ import {
   MeepleIcon,
   PriestIcon,
   SkullIcon,
+  SurvivorIcon,
   VillagerIcon,
   WerewolfIcon,
 } from '../components/icons'
@@ -38,6 +39,10 @@ const ROLE_INFO: Record<Role, { description: string; icon: ReactNode }> = {
   CORRUPTED_JUDGE: {
     description: 'Se durante il giorno nessuno viene eliminato dal voto, la notte seguente puoi eliminare chi vuoi, anche un lupo.',
     icon: <CorruptedJudgeIcon />,
+  },
+  SURVIVOR: {
+    description: 'Sei un contadino come gli altri, ma hai una vita in più: se i lupi mannari ti sbranano, la prima volta sopravvivi.',
+    icon: <SurvivorIcon />,
   },
   VILLAGER: {
     description: 'Non hai poteri speciali: osserva, discuti e vota con attenzione.',

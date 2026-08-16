@@ -41,6 +41,15 @@ public class Player {
     @Column(nullable = false)
     private boolean alive = true;
 
+    /**
+     * Extra lives beyond the usual single life, e.g. the survivor's
+     * (see {@link Role#getStartingExtraLives()}). Consulted only by
+     * whichever kill mechanic cares — today, the werewolves' — not a
+     * generic shield against every way a player can die.
+     */
+    @Column(nullable = false)
+    private int extraLives;
+
     @Column(nullable = false)
     private Instant joinedAt;
 
@@ -91,6 +100,14 @@ public class Player {
 
     public void kill() {
         this.alive = false;
+    }
+
+    public int getExtraLives() {
+        return extraLives;
+    }
+
+    public void setExtraLives(int extraLives) {
+        this.extraLives = extraLives;
     }
 
     public Instant getJoinedAt() {

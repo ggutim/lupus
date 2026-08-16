@@ -84,4 +84,17 @@ public interface NightActionEffect {
     default boolean isEligibleThisRound(Room room) {
         return true;
     }
+
+    /**
+     * Applies this role's deferred kill to {@code target} (only ever
+     * called when {@link #isDeferredKill()} is {@code true}), returning
+     * whether the target actually died — {@code false} if something
+     * absorbed it (e.g. the survivor's extra life against the
+     * werewolves specifically, see {@link WerewolfKillEffect}). Kills
+     * unconditionally by default.
+     */
+    default boolean applyDeferredKill(Player target) {
+        target.kill();
+        return true;
+    }
 }

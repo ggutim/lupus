@@ -112,31 +112,47 @@ public class NightEngine {
 
     /**
      * Applies every deferred-kill role's recorded target this round
-     * (the werewolves', and the corrupted judge's when active) and
-     * clears the room's current-turn state. Doesn't touch {@code
-     * phase} — that's the caller's call once it's also checked for a
-     * winner. Returns the (deduped) victim ids, if any, so the caller
-     * can report what happened without a second lookup.
+     * (the werewolves', and the corrupted judge's when active) via
+     * {@link NightActionEffect#applyDeferredKill}, and clears the
+     * room's current-turn state. Doesn't touch {@code phase} — that's
+     * the caller's call once it's also checked for a winner. Returns
+     * the ids of players who actually died — a target isn't
+     * necessarily one of them (e.g. the survivor's extra life
+     * absorbing a werewolf kill), so this can differ from {@link
+     * #findLastNightVictims}.
      */
     public List<Long> resolveDeferredKillsAndClearState(Room room) {
-        List<Long> victimIds = deferredKillTargetsThisRound(room);
-        for (Long victimId : victimIds) {
-            Player victim = playerRepository.findById(victimId)
-                    .orElseThrow(() -> new PlayerNotFoundException(victimId));
-            victim.kill();
-            playerRepository.save(victim);
+        Set<Long> victimIds = new LinkedHashSet<>();
+        for (Role role : NIGHT_ORDER) {
+            NightActionEffect effect = effects.get(role);
+            if (effect == null || !effect.isDeferredKill()) {
+                continue;
+            }
+            Long targetId = findAction(room, role).map(NightAction::getTargetPlayerId).orElse(null);
+            if (targetId == null) {
+                continue;
+            }
+            Player target = playerRepository.findById(targetId)
+                    .orElseThrow(() -> new PlayerNotFoundException(targetId));
+            boolean died = effect.applyDeferredKill(target);
+            playerRepository.save(target);
+            if (died) {
+                victimIds.add(targetId);
+            }
         }
 
         room.setCurrentNightRole(null);
         room.setCurrentNightStepKind(null);
 
-        return victimIds;
+        return List.copyOf(victimIds);
     }
 
     /**
-     * Read-only lookup of this round's deferred-kill targets, without
-     * applying anything — for DTO assembly at any point after the
-     * night resolves (or mid-resolution, before it does).
+     * Read-only lookup of this round's deferred-kill *targets* —
+     * not necessarily deaths, see {@link #resolveDeferredKillsAndClearState}
+     * — without applying anything. Used both mid-night (to exclude a
+     * pending target from other roles' holder checks, where "will
+     * this kill actually land" isn't known yet) and for DTO assembly.
      */
     public List<Long> findLastNightVictims(Room room) {
         return deferredKillTargetsThisRound(room);

@@ -77,6 +77,21 @@ export function CorruptedJudgeIcon(props: IconProps) {
   )
 }
 
+export function SurvivorIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path
+        d="M32 8 12 16v14c0 14 8 24 20 26 12-2 20-12 20-26V16Z"
+        fill="currentColor"
+      />
+      <path
+        d="M32 22c-2-3-5-4-8-2-3 2-3 6 0 9l8 8 8-8c3-3 3-7 0-9-3-2-6-1-8 2Z"
+        fill="#1a1108"
+      />
+    </svg>
+  )
+}
+
 export function VillagerIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>

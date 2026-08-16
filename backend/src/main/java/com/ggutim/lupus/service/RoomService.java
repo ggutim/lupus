@@ -93,15 +93,17 @@ public class RoomService {
         int gravediggerCount = request.gravediggerCount();
         int idiotCount = request.idiotCount();
         int corruptedJudgeCount = request.corruptedJudgeCount();
+        int survivorCount = request.survivorCount();
 
-        if (werewolfCount + priestCount + gravediggerCount + idiotCount + corruptedJudgeCount > playerCount) {
+        int specialRoleCount = werewolfCount + priestCount + gravediggerCount + idiotCount
+                + corruptedJudgeCount + survivorCount;
+        if (specialRoleCount > playerCount) {
             throw new InvalidRulesetException(
-                    "werewolfCount, priestCount, gravediggerCount, idiotCount and corruptedJudgeCount "
-                            + "cannot exceed playerCount");
+                    "werewolfCount, priestCount, gravediggerCount, idiotCount, corruptedJudgeCount and "
+                            + "survivorCount cannot exceed playerCount");
         }
 
-        int villagerCount =
-                playerCount - werewolfCount - priestCount - gravediggerCount - idiotCount - corruptedJudgeCount;
+        int villagerCount = playerCount - specialRoleCount;
 
         Map<Role, Integer> roleCounts = new EnumMap<>(Role.class);
         roleCounts.put(Role.WEREWOLF, werewolfCount);
@@ -109,6 +111,7 @@ public class RoomService {
         roleCounts.put(Role.GRAVEDIGGER, gravediggerCount);
         roleCounts.put(Role.IDIOT, idiotCount);
         roleCounts.put(Role.CORRUPTED_JUDGE, corruptedJudgeCount);
+        roleCounts.put(Role.SURVIVOR, survivorCount);
         roleCounts.put(Role.VILLAGER, villagerCount);
         return roleCounts;
     }

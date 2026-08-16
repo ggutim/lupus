@@ -135,7 +135,11 @@ function buildCard(state: MasterGameState): CardContent {
     case 'NIGHT_ACTIONS':
       return buildNightActionsCard(state)
     case 'MORNING_REVEAL': {
-      const victimNames = lastNightVictimIds.map((id) => playerName(players, id))
+      // lastNightVictimIds is who was targeted, not necessarily who died (e.g. the
+      // survivor's extra life can absorb a werewolf hit) — only narrate actual deaths.
+      const victimNames = lastNightVictimIds
+        .filter((id) => players.find((player) => player.id === id)?.alive === false)
+        .map((id) => playerName(players, id))
       let body: string
       if (victimNames.length === 0) {
         body = 'Questa notte nessuno è morto.'

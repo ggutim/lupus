@@ -48,13 +48,18 @@ public class RoleAssigner {
             }
             int count = roleCounts.getOrDefault(role, 0);
             for (int i = 0; i < count; i++) {
-                shuffled.get(index++).setRole(role);
+                assignRole(shuffled.get(index++), role);
             }
         }
         while (index < shuffled.size()) {
-            shuffled.get(index++).setRole(Role.VILLAGER);
+            assignRole(shuffled.get(index++), Role.VILLAGER);
         }
 
         playerRepository.saveAll(shuffled);
+    }
+
+    private void assignRole(Player player, Role role) {
+        player.setRole(role);
+        player.setExtraLives(role.getStartingExtraLives());
     }
 }

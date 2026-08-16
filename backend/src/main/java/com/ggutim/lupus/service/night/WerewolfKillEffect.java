@@ -36,4 +36,20 @@ class WerewolfKillEffect implements NightActionEffect {
     public boolean isDeferredKill() {
         return true;
     }
+
+    /**
+     * A target with an extra life (the survivor) absorbs the
+     * werewolves' kill instead of dying — specific to this mechanic,
+     * not a general shield: the corrupted judge's kill still goes
+     * through unconditionally (see {@link CorruptedJudgeKillEffect}).
+     */
+    @Override
+    public boolean applyDeferredKill(Player target) {
+        if (target.getExtraLives() > 0) {
+            target.setExtraLives(target.getExtraLives() - 1);
+            return false;
+        }
+        target.kill();
+        return true;
+    }
 }

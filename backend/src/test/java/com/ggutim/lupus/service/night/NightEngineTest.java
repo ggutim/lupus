@@ -367,6 +367,68 @@ class NightEngineTest {
     }
 
     @Test
+    void resolveDeferredKillsAndClearState_survivorAbsorbsWerewolfKillAndKeepsNoVictimReported() {
+        Room room = room(1, 0, 0);
+        Player survivor = player(room, "S1", Role.SURVIVOR, true);
+        survivor.setExtraLives(1);
+        mockPlayers(room, List.of(survivor));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.WEREWOLF, survivor.getId());
+        List<Long> victimIds = engine.resolveDeferredKillsAndClearState(room);
+
+        assertThat(survivor.isAlive()).isTrue();
+        assertThat(survivor.getExtraLives()).isZero();
+        assertThat(victimIds).isEmpty();
+    }
+
+    @Test
+    void resolveDeferredKillsAndClearState_survivorDiesOnWerewolfKillWithNoLivesLeft() {
+        Room room = room(1, 0, 0);
+        Player survivor = player(room, "S1", Role.SURVIVOR, true);
+        survivor.setExtraLives(0);
+        mockPlayers(room, List.of(survivor));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.WEREWOLF, survivor.getId());
+        List<Long> victimIds = engine.resolveDeferredKillsAndClearState(room);
+
+        assertThat(survivor.isAlive()).isFalse();
+        assertThat(victimIds).containsExactly(survivor.getId());
+    }
+
+    @Test
+    void resolveDeferredKillsAndClearState_corruptedJudgeKillIgnoresSurvivorExtraLife() {
+        Room room = room(0, 0, 0, 1);
+        Player survivor = player(room, "S1", Role.SURVIVOR, true);
+        survivor.setExtraLives(1);
+        mockPlayers(room, List.of(survivor));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.CORRUPTED_JUDGE, survivor.getId());
+        List<Long> victimIds = engine.resolveDeferredKillsAndClearState(room);
+
+        assertThat(survivor.isAlive()).isFalse();
+        assertThat(survivor.getExtraLives()).isEqualTo(1);
+        assertThat(victimIds).containsExactly(survivor.getId());
+    }
+
+    @Test
+    void findLastNightVictims_stillReturnsTargetEvenWhenTheKillWasAbsorbed() {
+        Room room = room(1, 0, 0);
+        Player survivor = player(room, "S1", Role.SURVIVOR, true);
+        survivor.setExtraLives(1);
+        mockPlayers(room, List.of(survivor));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.WEREWOLF, survivor.getId());
+        engine.resolveDeferredKillsAndClearState(room);
+
+        assertThat(engine.findLastNightVictims(room)).containsExactly(survivor.getId());
+        assertThat(survivor.isAlive()).isTrue();
+    }
+
+    @Test
     void resolveDeferredKillsAndClearState_returnsEmptyWhenNoVictimRecorded() {
         Room room = room(1, 0, 0);
 

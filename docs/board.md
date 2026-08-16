@@ -12,7 +12,7 @@
 | 8  | New evil role: "corrupted judge"                                                                            | DONE    |
 | 9  | New evil role: "killer"                                                                                     | BACKLOG |
 | 10 | New good role: "gravedigger"                                                                                | DONE    |
-| 11 | New good role: "survivor"                                                                                   | BACKLOG |
+| 11 | New good role: "survivor"                                                                                   | DONE    |
 | 12 | New good role: "hunter"                                                                                     | BACKLOG |
 | 13 | New good role: "cupid"                                                                                      | BACKLOG |
 | 14 | New good role: "little girl"                                                                                | BACKLOG |

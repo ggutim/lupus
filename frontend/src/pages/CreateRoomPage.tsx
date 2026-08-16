@@ -11,6 +11,7 @@ import {
   IdiotIcon,
   MeepleIcon,
   PriestIcon,
+  SurvivorIcon,
   VillagerIcon,
   WerewolfIcon,
 } from '../components/icons'
@@ -55,16 +56,15 @@ function CreateRoomPage() {
   const [gravediggerCount, setGravediggerCount] = useState(0)
   const [idiotCount, setIdiotCount] = useState(0)
   const [corruptedJudgeCount, setCorruptedJudgeCount] = useState(0)
+  const [survivorCount, setSurvivorCount] = useState(0)
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const villagerCount = Math.max(
-    playerCount - werewolfCount - priestCount - gravediggerCount - idiotCount - corruptedJudgeCount,
-    0,
-  )
-  const rolesExceedPlayers =
-    werewolfCount + priestCount + gravediggerCount + idiotCount + corruptedJudgeCount > playerCount
+  const specialRoleCount =
+    werewolfCount + priestCount + gravediggerCount + idiotCount + corruptedJudgeCount + survivorCount
+  const villagerCount = Math.max(playerCount - specialRoleCount, 0)
+  const rolesExceedPlayers = specialRoleCount > playerCount
 
   const handleCreateRoom = async () => {
     setError(null)
@@ -78,6 +78,7 @@ function CreateRoomPage() {
         gravediggerCount,
         idiotCount,
         corruptedJudgeCount,
+        survivorCount,
       })
       storeMasterToken(room.code, room.masterToken)
       navigate(`/room/${room.code}`)
@@ -188,6 +189,13 @@ function CreateRoomPage() {
               min={0}
               max={1}
               onChange={setCorruptedJudgeCount}
+            />
+            <RoleCard
+              icon={<SurvivorIcon />}
+              label="Sopravvissuti"
+              count={survivorCount}
+              min={0}
+              onChange={setSurvivorCount}
             />
             <RoleCard icon={<VillagerIcon />} label="Contadini" count={villagerCount} readOnly />
           </div>

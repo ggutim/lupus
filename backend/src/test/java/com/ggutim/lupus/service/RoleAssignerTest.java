@@ -68,4 +68,17 @@ class RoleAssignerTest {
         assertThatThrownBy(() -> roleAssigner().assign(room, new ArrayList<>(players)))
                 .isInstanceOf(InvalidRulesetException.class);
     }
+
+    @Test
+    void assign_givesSurvivorsOneExtraLifeAndEveryoneElseNone() {
+        Room room = room(4, Map.of(Role.SURVIVOR, 1));
+        List<Player> players = players(room, 4);
+
+        roleAssigner().assign(room, players);
+
+        Player survivor = players.stream().filter(p -> p.getRole() == Role.SURVIVOR).findFirst().orElseThrow();
+        assertThat(survivor.getExtraLives()).isEqualTo(1);
+        players.stream().filter(p -> p.getRole() != Role.SURVIVOR)
+                .forEach(p -> assertThat(p.getExtraLives()).isZero());
+    }
 }
