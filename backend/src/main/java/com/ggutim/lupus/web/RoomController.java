@@ -2,6 +2,7 @@ package com.ggutim.lupus.web;
 
 import com.ggutim.lupus.dto.CreateRoomRequest;
 import com.ggutim.lupus.dto.GameRulesResponse;
+import com.ggutim.lupus.dto.MasterRoomStateResponse;
 import com.ggutim.lupus.dto.RoomResponse;
 import com.ggutim.lupus.dto.RoomStateMessage;
 import com.ggutim.lupus.dto.VillageOverviewResponse;
@@ -47,6 +48,12 @@ public class RoomController {
     public ResponseEntity<RoomStateMessage> getRoom(@PathVariable String code,
                                                      @RequestHeader(value = "X-Master-Token", required = false) String masterToken) {
         return ResponseEntity.ok(roomService.getRoomState(code, masterToken));
+    }
+
+    @GetMapping("/{code}/roster")
+    public ResponseEntity<MasterRoomStateResponse> getRoster(@PathVariable String code,
+            @RequestHeader(value = "X-Master-Token", required = false) String masterToken) {
+        return ResponseEntity.ok(roomService.getMasterRosterState(code.toUpperCase(), masterToken));
     }
 
     @GetMapping("/{code}/village")

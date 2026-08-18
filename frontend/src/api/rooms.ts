@@ -15,6 +15,8 @@ export interface CreateRoomRequest {
   idiotCount: number
   corruptedJudgeCount: number
   survivorCount: number
+  remoteJoin: boolean
+  manualRoles: boolean
 }
 
 export interface Room {
@@ -23,6 +25,8 @@ export interface Room {
   gameMode: GameMode
   playerCount: number
   roleCounts: RoleCounts
+  remoteJoin: boolean
+  manualRoles: boolean
 }
 
 export interface Player {
@@ -35,6 +39,22 @@ export interface RoomState {
   status: RoomStatus
   playerCount: number
   players: Player[]
+}
+
+export interface ManualPlayer {
+  id: number
+  nickname: string
+  role: Role | null
+}
+
+export interface MasterRoomState {
+  code: string
+  status: RoomStatus
+  playerCount: number
+  remoteJoin: boolean
+  manualRoles: boolean
+  roleCounts: RoleCounts
+  players: ManualPlayer[]
 }
 
 export interface JoinRoomResponse {
@@ -131,6 +151,37 @@ export async function getPlayerRole(code: string, playerId: number, playerToken:
 
   if (!response.ok) {
     await handleErrorResponse(response, 'Impossibile recuperare il tuo ruolo.')
+  }
+
+  return response.json()
+}
+
+export async function addPlayerManually(
+  code: string,
+  masterToken: string,
+  nickname: string,
+  role?: Role,
+): Promise<ManualPlayer> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/players/manual`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', 'X-Master-Token': masterToken },
+    body: JSON.stringify({ nickname, role: role ?? null }),
+  })
+
+  if (!response.ok) {
+    await handleErrorResponse(response, 'Impossibile aggiungere il giocatore. Riprova.')
+  }
+
+  return response.json()
+}
+
+export async function getRoomRoster(code: string, masterToken: string): Promise<MasterRoomState> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/roster`, {
+    headers: { 'X-Master-Token': masterToken },
+  })
+
+  if (!response.ok) {
+    await handleErrorResponse(response, 'Impossibile trovare la stanza.')
   }
 
   return response.json()

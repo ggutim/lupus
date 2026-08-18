@@ -53,9 +53,11 @@ function JoinRoomPage() {
         </button>
       </form>
       {error && <p className="error">{error}</p>}
-      <Link to="/" className="button">
-        Torna indietro
-      </Link>
+      <div className="join-form">
+        <Link to="/" className="button">
+          Torna indietro
+        </Link>
+      </div>
     </BoardPanel>
   )
 }

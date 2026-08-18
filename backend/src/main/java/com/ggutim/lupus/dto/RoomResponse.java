@@ -16,11 +16,13 @@ public record RoomResponse(
         String masterToken,
         GameMode gameMode,
         int playerCount,
-        Map<Role, Integer> roleCounts
+        Map<Role, Integer> roleCounts,
+        boolean remoteJoin,
+        boolean manualRoles
 ) {
 
     public static RoomResponse from(Room room, String masterToken) {
-        return new RoomResponse(
-                room.getCode(), masterToken, room.getGameMode(), room.getPlayerCount(), room.getRoleCounts());
+        return new RoomResponse(room.getCode(), masterToken, room.getGameMode(), room.getPlayerCount(),
+                room.getRoleCounts(), room.isRemoteJoin(), room.isManualRoles());
     }
 }

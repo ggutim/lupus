@@ -33,7 +33,8 @@ public record MasterGameStateResponse(
         List<Long> lastNightVictimIds,
         Long pendingVoteVictimId,
         Alignment winner,
-        Role winningRole
+        Role winningRole,
+        boolean remoteJoin
 ) {
 
     /**
@@ -58,6 +59,7 @@ public record MasterGameStateResponse(
                 lastNightVictimIds,
                 room.getPendingVoteVictimId(),
                 room.getWinner(),
-                room.getWinningRole());
+                room.getWinningRole(),
+                room.isRemoteJoin());
     }
 }

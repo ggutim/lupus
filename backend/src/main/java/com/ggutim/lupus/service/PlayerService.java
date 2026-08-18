@@ -2,6 +2,7 @@ package com.ggutim.lupus.service;
 
 import com.ggutim.lupus.config.GameRules;
 import com.ggutim.lupus.dto.JoinRoomResponse;
+import com.ggutim.lupus.dto.ManualPlayerResponse;
 import com.ggutim.lupus.dto.PlayerResponse;
 import com.ggutim.lupus.dto.PlayerRoleResponse;
 import com.ggutim.lupus.dto.RoomStateMessage;
@@ -33,15 +34,18 @@ public class PlayerService {
     private final GameService gameService;
     private final GameRules gameRules;
     private final SimpMessagingTemplate messagingTemplate;
+    private final RoleAssigner roleAssigner;
 
     public PlayerService(RoomRepository roomRepository, PlayerRepository playerRepository, RoomService roomService,
-                          GameService gameService, GameRules gameRules, SimpMessagingTemplate messagingTemplate) {
+                          GameService gameService, GameRules gameRules, SimpMessagingTemplate messagingTemplate,
+                          RoleAssigner roleAssigner) {
         this.roomRepository = roomRepository;
         this.playerRepository = playerRepository;
         this.roomService = roomService;
         this.gameService = gameService;
         this.gameRules = gameRules;
         this.messagingTemplate = messagingTemplate;
+        this.roleAssigner = roleAssigner;
     }
 
     @Transactional
@@ -50,6 +54,10 @@ public class PlayerService {
 
         Room room = roomRepository.findByCode(code)
                 .orElseThrow(() -> new RoomNotFoundException(code));
+
+        if (!room.isRemoteJoin()) {
+            throw new InvalidRulesetException("Room " + code + " does not accept remote joins");
+        }
 
         if (room.getStatus() == RoomStatus.STARTED) {
             throw new RoomAlreadyStartedException(code);
@@ -69,6 +77,59 @@ public class PlayerService {
 
         broadcastRoomState(room);
         return JoinRoomResponse.from(player, playerToken);
+    }
+
+    /**
+     * Master-driven counterpart to {@link #joinRoom}, for a narrate-only
+     * room's roster screen. {@code role} is required when {@link
+     * Room#isManualRoles()} and forbidden otherwise, so a room's role
+     * assignment is always either fully random or fully manual, never a
+     * mix. No broadcast: unlike a remote room, nobody else is watching
+     * this room's state before it starts.
+     */
+    @Transactional
+    public ManualPlayerResponse addPlayerManually(String code, String masterToken, String nickname, Role role) {
+        Room room = roomService.findRoomForMaster(code, masterToken);
+
+        if (room.isRemoteJoin()) {
+            throw new InvalidRulesetException("Room " + code + " accepts remote joins, not manual entry");
+        }
+
+        if (room.getStatus() == RoomStatus.STARTED) {
+            throw new RoomAlreadyStartedException(code);
+        }
+
+        long currentPlayerCount = playerRepository.countByRoomId(room.getId());
+        if (currentPlayerCount >= room.getPlayerCount()) {
+            throw new RoomFullException(code);
+        }
+
+        String normalizedNickname = nickname.toUpperCase();
+        if (playerRepository.existsByRoomIdAndNicknameIgnoreCase(room.getId(), normalizedNickname)) {
+            throw new NicknameTakenException(normalizedNickname);
+        }
+
+        if (room.isManualRoles()) {
+            if (role == null) {
+                throw new InvalidRulesetException("A role is required when assigning roles manually");
+            }
+            long assignedForRole = playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId()).stream()
+                    .filter(p -> p.getRole() == role)
+                    .count();
+            if (assignedForRole >= room.getRoleCounts().getOrDefault(role, 0)) {
+                throw new InvalidRulesetException("No remaining " + role + " slots in this room's ruleset");
+            }
+        } else if (role != null) {
+            throw new InvalidRulesetException("Roles are assigned randomly in this room, not per player");
+        }
+
+        Player player = new Player(room, normalizedNickname, SecretTokens.generate());
+        if (role != null) {
+            roleAssigner.assignRole(player, role);
+        }
+        playerRepository.save(player);
+
+        return ManualPlayerResponse.from(player);
     }
 
     @Transactional
@@ -99,6 +160,13 @@ public class PlayerService {
         List<Player> players = playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId());
         if (players.size() < gameRules.getMinPlayers()) {
             throw new NotEnoughPlayersException(code, gameRules.getMinPlayers());
+        }
+
+        // Manual dealing has no equivalent to RoleAssigner's guarantee that every
+        // declared special role gets filled first — require the whole pool to be
+        // dealt rather than risk starting with an unfilled role.
+        if (room.isManualRoles() && players.size() < room.getPlayerCount()) {
+            throw new NotEnoughPlayersException(code, room.getPlayerCount());
         }
 
         int specialRoleCount = 0;
@@ -141,6 +209,6 @@ public class PlayerService {
         RoomStateMessage message = new RoomStateMessage(
                 room.getCode(), room.getStatus(), room.getPlayerCount(), players);
 
-        messagingTemplate.convertAndSend("/topic/rooms/" + room.getCode(), message);
+        AfterCommit.run(() -> messagingTemplate.convertAndSend("/topic/rooms/" + room.getCode(), message));
     }
 }

@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ApiError, getRoomState, kickPlayer, startGame, type RoomState } from '../api/rooms'
-import { getMasterToken } from '../api/masterToken'
+import { getRoomState, kickPlayer, startGame, type RoomState } from '../api/rooms'
 import { MIN_PLAYERS } from '../api/gameRules'
 import { subscribeToRoom } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
+import PlayerTokenGrid from '../components/PlayerTokenGrid'
 import { useDialog } from '../components/useDialog'
-import { MeepleIcon } from '../components/icons'
+import { useMasterAccess } from '../components/useMasterAccess'
 
 function RoomCreatedPage() {
   const { code } = useParams<{ code: string }>()
@@ -15,38 +15,18 @@ function RoomCreatedPage() {
   const [starting, setStarting] = useState(false)
   const hasAnnouncedStart = useRef(false)
   const { showAlert, showConfirm } = useDialog()
-  const masterToken = code ? getMasterToken(code) : null
+  const { masterToken, handleForbidden } = useMasterAccess(code)
 
   useEffect(() => {
-    if (!code) return
+    if (!code || !masterToken) return
 
-    if (!masterToken) {
-      showAlert({
-        title: 'Accesso non disponibile',
-        message: 'Non risulti essere il narratore di questa stanza su questo dispositivo.',
-      }).then(() => navigate('/'))
-      return
-    }
+    getRoomState(code, masterToken).then(setRoomState).catch(handleForbidden)
 
-    getRoomState(code, masterToken)
-      .then(setRoomState)
-      .catch((err) => {
-        if (err instanceof ApiError && err.status === 403) {
-          showAlert({
-            title: 'Accesso negato',
-            message: 'Non risulti essere il narratore di questa stanza.',
-          }).then(() => navigate('/'))
-        }
-        // Otherwise the live subscription below will still populate the
-        // state once the room is reachable again.
-      })
-
-    const unsubscribe = subscribeToRoom(code, (state) => {
-      setRoomState(state)
-    })
-
+    // If the fetch above failed transiently, the live subscription still
+    // populates the state once the room is reachable again.
+    const unsubscribe = subscribeToRoom(code, setRoomState)
     return unsubscribe
-  }, [code, masterToken, navigate, showAlert])
+  }, [code, masterToken, handleForbidden])
 
   useEffect(() => {
     if (roomState?.status === 'STARTED' && !hasAnnouncedStart.current && code) {
@@ -119,47 +99,29 @@ function RoomCreatedPage() {
         <h2>
           Giocatori ({joinedCount}/{totalCount})
         </h2>
-        {joinedCount === 0 ? (
-          <p className="player-list-empty">Nessun giocatore è ancora entrato.</p>
-        ) : (
-          <div className="player-tokens">
-            {roomState?.players.map((player) => (
-              <div className="player-token" key={player.id}>
-                <div className="player-token-meeple-wrapper">
-                  <div className="player-token-meeple">
-                    <MeepleIcon />
-                  </div>
-                  <button
-                    type="button"
-                    className="player-token-kick"
-                    onClick={() => handleKick(player.id, player.nickname)}
-                    aria-label={`Rimuovi ${player.nickname}`}
-                    title={`Rimuovi ${player.nickname}`}
-                  >
-                    ×
-                  </button>
-                </div>
-                <span className="player-token-name">{player.nickname}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <PlayerTokenGrid
+          players={roomState?.players ?? []}
+          onRemove={handleKick}
+          emptyMessage="Nessun giocatore è ancora entrato."
+        />
       </section>
 
-      {roomState?.status !== 'STARTED' && (
-        <button
-          type="button"
-          className="button button-primary"
-          onClick={handleStartGame}
-          disabled={!canStart || starting}
-        >
-          {starting ? 'Avvio in corso…' : 'Inizia partita'}
-        </button>
-      )}
+      <div className="join-form">
+        {roomState?.status !== 'STARTED' && (
+          <button
+            type="button"
+            className="button button-primary"
+            onClick={handleStartGame}
+            disabled={!canStart || starting}
+          >
+            {starting ? 'Avvio in corso…' : 'Inizia partita'}
+          </button>
+        )}
 
-      <Link to="/" className="button">
-        Torna alla home
-      </Link>
+        <Link to="/" className="button">
+          Torna alla home
+        </Link>
+      </div>
     </BoardPanel>
   )
 }

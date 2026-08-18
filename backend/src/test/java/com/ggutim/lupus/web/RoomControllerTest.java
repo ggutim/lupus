@@ -7,6 +7,8 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ggutim.lupus.dto.GameRulesResponse;
+import com.ggutim.lupus.dto.ManualPlayerResponse;
+import com.ggutim.lupus.dto.MasterRoomStateResponse;
 import com.ggutim.lupus.dto.PlayerResponse;
 import com.ggutim.lupus.dto.RoomResponse;
 import com.ggutim.lupus.dto.RoomStateMessage;
@@ -51,13 +53,13 @@ class RoomControllerTest {
     @Test
     void createRoom_returnsCreatedRoomWithMasterToken() {
         RoomResponse room = new RoomResponse("X7K2", "secret-token", GameMode.CLASSIC, 10, Map.of(
-                Role.WEREWOLF, 3, Role.PRIEST, 1, Role.VILLAGER, 6));
+                Role.WEREWOLF, 3, Role.PRIEST, 1, Role.VILLAGER, 6), true, false);
         when(roomService.createRoom(any())).thenReturn(room);
 
         var result = mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0}
+                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"remoteJoin":true,"manualRoles":false}
                         """)
                 .assertThat()
                 .hasStatus(201);
@@ -74,7 +76,7 @@ class RoomControllerTest {
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":3,"werewolfCount":1,"priestCount":0,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0}
+                        {"gameMode":"CLASSIC","playerCount":3,"werewolfCount":1,"priestCount":0,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"remoteJoin":true,"manualRoles":false}
                         """)
                 .assertThat()
                 .hasStatus(400);
@@ -83,13 +85,13 @@ class RoomControllerTest {
     @Test
     void createRoom_acceptsPlayerCountAtMinimum() {
         RoomResponse room = new RoomResponse("MIN4", "secret-token", GameMode.CLASSIC, 4, Map.of(
-                Role.WEREWOLF, 1, Role.PRIEST, 0, Role.VILLAGER, 3));
+                Role.WEREWOLF, 1, Role.PRIEST, 0, Role.VILLAGER, 3), true, false);
         when(roomService.createRoom(any())).thenReturn(room);
 
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":4,"werewolfCount":1,"priestCount":0,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0}
+                        {"gameMode":"CLASSIC","playerCount":4,"werewolfCount":1,"priestCount":0,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"remoteJoin":true,"manualRoles":false}
                         """)
                 .assertThat()
                 .hasStatus(201);
@@ -100,7 +102,7 @@ class RoomControllerTest {
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":2,"survivorCount":0}
+                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":2,"survivorCount":0,"remoteJoin":true,"manualRoles":false}
                         """)
                 .assertThat()
                 .hasStatus(400);
@@ -168,6 +170,32 @@ class RoomControllerTest {
                 .thenThrow(new MasterTokenMismatchException("ABCD"));
 
         mvc.get().uri("/api/rooms/ABCD")
+                .assertThat()
+                .hasStatus(403);
+    }
+
+    @Test
+    void getRoster_returnsMasterRosterWithRoles() {
+        MasterRoomStateResponse state = new MasterRoomStateResponse("ABCD", RoomStatus.WAITING_FOR_PLAYERS, 6,
+                false, true, Map.of(Role.WEREWOLF, 1, Role.VILLAGER, 5),
+                List.of(new ManualPlayerResponse(1L, "ALICE", Role.WEREWOLF)));
+        when(roomService.getMasterRosterState(eq("ABCD"), eq("secret-token"))).thenReturn(state);
+
+        mvc.get().uri("/api/rooms/ABCD/roster")
+                .header("X-Master-Token", "secret-token")
+                .assertThat()
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.players[0].role").isEqualTo("WEREWOLF");
+    }
+
+    @Test
+    void getRoster_returnsForbiddenForWrongMasterToken() {
+        when(roomService.getMasterRosterState(eq("ABCD"), eq("wrong-token")))
+                .thenThrow(new MasterTokenMismatchException("ABCD"));
+
+        mvc.get().uri("/api/rooms/ABCD/roster")
+                .header("X-Master-Token", "wrong-token")
                 .assertThat()
                 .hasStatus(403);
     }

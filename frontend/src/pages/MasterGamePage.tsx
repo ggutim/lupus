@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useParams } from 'react-router-dom'
 import {
   advancePhase,
   getGameState,
@@ -10,11 +10,11 @@ import {
   type MasterPlayerView,
 } from '../api/game'
 import { ApiError, type Role } from '../api/rooms'
-import { getMasterToken } from '../api/masterToken'
 import { subscribeToGame } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
 import VillageOverviewDialog from '../components/VillageOverviewDialog'
 import { useDialog } from '../components/useDialog'
+import { useMasterAccess } from '../components/useMasterAccess'
 import {
   CorruptedJudgeIcon,
   EyeIcon,
@@ -117,14 +117,16 @@ function buildNightActionsCard(state: MasterGameState): CardContent {
 }
 
 function buildCard(state: MasterGameState): CardContent {
-  const { phase, players, lastNightVictimIds, winner, winningRole } = state
+  const { phase, players, lastNightVictimIds, winner, winningRole, remoteJoin } = state
 
   switch (phase) {
     case 'ROLES_ASSIGNED':
       return {
         icon: <EyeIcon />,
         title: 'I ruoli sono stati assegnati',
-        body: 'Dite a tutti i giocatori di controllare in silenzio il proprio ruolo.',
+        body: remoteJoin
+          ? 'Dite a tutti i giocatori di controllare in silenzio il proprio ruolo.'
+          : 'Apri il Villaggio e comunica in privato a ciascun giocatore il proprio ruolo.',
       }
     case 'NIGHT_START':
       return {
@@ -228,9 +230,8 @@ function selectablePlayers(state: MasterGameState): MasterPlayerView[] {
 
 function MasterGamePage() {
   const { code } = useParams<{ code: string }>()
-  const navigate = useNavigate()
   const { showAlert } = useDialog()
-  const masterToken = code ? getMasterToken(code) : null
+  const { masterToken, handleForbidden } = useMasterAccess(code)
 
   const [state, setState] = useState<MasterGameState | null>(null)
   const [busy, setBusy] = useState(false)
@@ -238,33 +239,16 @@ function MasterGamePage() {
 
   const refresh = useCallback(() => {
     if (!code || !masterToken) return
-    getGameState(code, masterToken)
-      .then(setState)
-      .catch((err) => {
-        if (err instanceof ApiError && err.status === 403) {
-          showAlert({
-            title: 'Accesso negato',
-            message: 'Non risulti essere il narratore di questa stanza.',
-          }).then(() => navigate('/'))
-        }
-      })
-  }, [code, masterToken, navigate, showAlert])
+    getGameState(code, masterToken).then(setState).catch(handleForbidden)
+  }, [code, masterToken, handleForbidden])
 
   useEffect(() => {
-    if (!code) return
-
-    if (!masterToken) {
-      showAlert({
-        title: 'Accesso non disponibile',
-        message: 'Non risulti essere il narratore di questa stanza su questo dispositivo.',
-      }).then(() => navigate('/'))
-      return
-    }
+    if (!code || !masterToken) return
 
     refresh()
     const unsubscribe = subscribeToGame(code, refresh)
     return unsubscribe
-  }, [code, masterToken, navigate, showAlert, refresh])
+  }, [code, masterToken, refresh])
 
   if (!state) {
     return (

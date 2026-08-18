@@ -93,6 +93,22 @@ public class Room {
     @Column(nullable = false)
     private boolean noOneVotedOutPreviousDay;
 
+    /**
+     * {@code false} means this room's roster is entered entirely by the
+     * master — no join code is ever shared, and {@link
+     * com.ggutim.lupus.web.PlayerController#joinRoom} rejects remote joins.
+     */
+    @Column(nullable = false)
+    private boolean remoteJoin;
+
+    /**
+     * Only meaningful when {@link #remoteJoin} is {@code false}: whether
+     * the master hand-picks each player's role at add-time rather than
+     * leaving it to {@link com.ggutim.lupus.service.RoleAssigner}.
+     */
+    @Column(nullable = false)
+    private boolean manualRoles;
+
     @Column(nullable = false)
     private Instant createdAt;
 
@@ -100,13 +116,16 @@ public class Room {
         // required by JPA
     }
 
-    public Room(String code, String masterToken, GameMode gameMode, int playerCount, Map<Role, Integer> roleCounts) {
+    public Room(String code, String masterToken, GameMode gameMode, int playerCount, Map<Role, Integer> roleCounts,
+                boolean remoteJoin, boolean manualRoles) {
         this.code = code;
         this.masterToken = masterToken;
         this.gameMode = gameMode;
         this.playerCount = playerCount;
         this.roleCounts = new EnumMap<>(roleCounts);
         this.status = RoomStatus.WAITING_FOR_PLAYERS;
+        this.remoteJoin = remoteJoin;
+        this.manualRoles = manualRoles;
         this.createdAt = Instant.now();
     }
 
@@ -210,6 +229,14 @@ public class Room {
 
     public void setNoOneVotedOutPreviousDay(boolean noOneVotedOutPreviousDay) {
         this.noOneVotedOutPreviousDay = noOneVotedOutPreviousDay;
+    }
+
+    public boolean isRemoteJoin() {
+        return remoteJoin;
+    }
+
+    public boolean isManualRoles() {
+        return manualRoles;
     }
 
     public Instant getCreatedAt() {

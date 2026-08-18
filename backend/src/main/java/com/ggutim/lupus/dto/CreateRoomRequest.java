@@ -46,6 +46,12 @@ public record CreateRoomRequest(
 
         @NotNull(message = "survivorCount is required")
         @Min(value = 0, message = "survivorCount must be at least 0")
-        Integer survivorCount
+        Integer survivorCount,
+
+        @NotNull(message = "remoteJoin is required")
+        Boolean remoteJoin,
+
+        @NotNull(message = "manualRoles is required")
+        Boolean manualRoles
 ) {
 }

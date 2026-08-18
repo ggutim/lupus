@@ -36,7 +36,7 @@ class RoleAssignerTest {
     }
 
     private Room room(int playerCount, Map<Role, Integer> roleCounts) {
-        return new Room("ABCD", "token", GameMode.CLASSIC, playerCount, roleCounts);
+        return new Room("ABCD", "token", GameMode.CLASSIC, playerCount, roleCounts, true, false);
     }
 
     private List<Player> players(Room room, int count) {

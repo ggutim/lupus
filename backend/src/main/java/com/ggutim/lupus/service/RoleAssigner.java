@@ -58,7 +58,12 @@ public class RoleAssigner {
         playerRepository.saveAll(shuffled);
     }
 
-    private void assignRole(Player player, Role role) {
+    /**
+     * Package-private so {@link PlayerService} can reuse it for a
+     * narrate-only room's manually-assigned players, without duplicating
+     * the role/extraLives pairing logic.
+     */
+    void assignRole(Player player, Role role) {
         player.setRole(role);
         player.setExtraLives(role.getStartingExtraLives());
     }

@@ -91,7 +91,7 @@ class GameServiceTest {
     }
 
     private Room newRoom() {
-        Room room = new Room(CODE, MASTER_TOKEN, GameMode.CLASSIC, 4, Map.of(Role.VILLAGER, 4));
+        Room room = new Room(CODE, MASTER_TOKEN, GameMode.CLASSIC, 4, Map.of(Role.VILLAGER, 4), true, false);
         setId(room, nextId++);
         return room;
     }
@@ -142,6 +142,19 @@ class GameServiceTest {
         assertThat(room.getPhase()).isEqualTo(GamePhase.ROLES_ASSIGNED);
         assertThat(room.getRoundNumber()).isEqualTo(1);
         verify(messagingTemplate).convertAndSend(eq("/topic/rooms/" + CODE + "/game"), any(GameUpdatedMessage.class));
+    }
+
+    @Test
+    void startGame_skipsRoleAssignerWhenRolesWereAssignedManually() {
+        Room room = new Room(CODE, MASTER_TOKEN, GameMode.CLASSIC, 1, Map.of(Role.VILLAGER, 1), false, true);
+        setId(room, nextId++);
+        List<Player> players = List.of(player(room, "P1", Role.VILLAGER, true));
+        when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        gameService().startGame(room, players);
+
+        verify(roleAssigner, never()).assign(any(), any());
+        assertThat(room.getStatus()).isEqualTo(RoomStatus.STARTED);
     }
 
     // ---------- getGameState ----------

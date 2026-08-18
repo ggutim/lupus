@@ -72,10 +72,16 @@ public class GameService {
      * Assigns roles to every joined player and moves the room into its
      * first phase. Called by {@link PlayerService#startGame} once it has
      * validated the master token and the minimum player count.
+     *
+     * <p>Skipped for a narrate-only room with manually-assigned roles —
+     * those players already carry their role and extra lives, set by
+     * {@link PlayerService#addPlayerManually} at add-time.
      */
     @Transactional
     public void startGame(Room room, List<Player> players) {
-        roleAssigner.assign(room, players);
+        if (!room.isManualRoles()) {
+            roleAssigner.assign(room, players);
+        }
 
         room.start();
         room.setRoundNumber(1);
@@ -302,7 +308,7 @@ public class GameService {
     }
 
     private void broadcastGameUpdated(Room room) {
-        messagingTemplate.convertAndSend("/topic/rooms/" + room.getCode() + "/game",
-                new GameUpdatedMessage(room.getCode()));
+        AfterCommit.run(() -> messagingTemplate.convertAndSend("/topic/rooms/" + room.getCode() + "/game",
+                new GameUpdatedMessage(room.getCode())));
     }
 }

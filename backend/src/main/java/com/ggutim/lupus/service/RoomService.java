@@ -3,6 +3,8 @@ package com.ggutim.lupus.service;
 import com.ggutim.lupus.config.GameRules;
 import com.ggutim.lupus.dto.CreateRoomRequest;
 import com.ggutim.lupus.dto.GameRulesResponse;
+import com.ggutim.lupus.dto.ManualPlayerResponse;
+import com.ggutim.lupus.dto.MasterRoomStateResponse;
 import com.ggutim.lupus.dto.PlayerResponse;
 import com.ggutim.lupus.dto.RoomResponse;
 import com.ggutim.lupus.dto.RoomStateMessage;
@@ -43,7 +45,8 @@ public class RoomService {
         Map<Role, Integer> roleCounts = resolveRoleCounts(request);
         String code = generateUniqueCode();
         String masterToken = SecretTokens.generate();
-        Room room = new Room(code, masterToken, request.gameMode(), request.playerCount(), roleCounts);
+        Room room = new Room(code, masterToken, request.gameMode(), request.playerCount(), roleCounts,
+                request.remoteJoin(), request.manualRoles());
         Room saved = roomRepository.save(room);
         return RoomResponse.from(saved, masterToken);
     }
@@ -60,6 +63,25 @@ public class RoomService {
                 .toList();
 
         return new RoomStateMessage(room.getCode(), room.getStatus(), room.getPlayerCount(), players);
+    }
+
+    /**
+     * Master-only counterpart to {@link #getRoomState}, for the
+     * narrate-only roster screen: unlike {@link RoomStateMessage} (also
+     * broadcast to player devices in remote rooms), this reveals each
+     * player's assigned role, so it must never be sent to anyone but the
+     * verified master.
+     */
+    @Transactional(readOnly = true)
+    public MasterRoomStateResponse getMasterRosterState(String code, String masterToken) {
+        Room room = findRoomForMaster(code, masterToken);
+
+        var players = playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId()).stream()
+                .map(ManualPlayerResponse::from)
+                .toList();
+
+        return new MasterRoomStateResponse(room.getCode(), room.getStatus(), room.getPlayerCount(),
+                room.isRemoteJoin(), room.isManualRoles(), new EnumMap<>(room.getRoleCounts()), players);
     }
 
     /**

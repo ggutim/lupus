@@ -4,6 +4,7 @@ import { ApiError, createRoom, type GameMode } from '../api/rooms'
 import { storeMasterToken } from '../api/masterToken'
 import { MAX_PLAYERS, MIN_PLAYERS } from '../api/gameRules'
 import BoardPanel from '../components/BoardPanel'
+import QuestSteps from '../components/QuestSteps'
 import RoleCard from '../components/RoleCard'
 import {
   CorruptedJudgeIcon,
@@ -16,40 +17,15 @@ import {
   WerewolfIcon,
 } from '../components/icons'
 
-type Step = 'mode' | 'players' | 'roles'
-
-const STEPS: { key: Step; label: string }[] = [
-  { key: 'mode', label: 'Modalità' },
-  { key: 'players', label: 'Giocatori' },
-  { key: 'roles', label: 'Ruoli' },
-]
-
-function QuestSteps({ current }: { current: Step }) {
-  const currentIndex = STEPS.findIndex((step) => step.key === current)
-
-  return (
-    <div className="quest-steps">
-      {STEPS.map((step, index) => (
-        <div
-          key={step.key}
-          className={
-            'quest-step' +
-            (index === currentIndex ? ' is-active' : index < currentIndex ? ' is-done' : '')
-          }
-        >
-          <div className="quest-step-medallion">{index + 1}</div>
-          <span className="quest-step-label">{step.label}</span>
-        </div>
-      ))}
-    </div>
-  )
-}
+type Step = 'mode' | 'participation' | 'assignment' | 'players' | 'roles'
 
 function CreateRoomPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('mode')
 
   const [gameMode, setGameMode] = useState<GameMode>('CLASSIC')
+  const [remoteJoin, setRemoteJoin] = useState(true)
+  const [manualRoles, setManualRoles] = useState(false)
   const [playerCount, setPlayerCount] = useState(8)
   const [werewolfCount, setWerewolfCount] = useState(2)
   const [priestCount, setPriestCount] = useState(1)
@@ -60,6 +36,21 @@ function CreateRoomPage() {
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  const steps: { key: Step; label: string }[] = remoteJoin
+    ? [
+        { key: 'mode', label: 'Modalità' },
+        { key: 'participation', label: 'Accesso' },
+        { key: 'players', label: 'Giocatori' },
+        { key: 'roles', label: 'Ruoli' },
+      ]
+    : [
+        { key: 'mode', label: 'Modalità' },
+        { key: 'participation', label: 'Accesso' },
+        { key: 'assignment', label: 'Assegna' },
+        { key: 'players', label: 'Giocatori' },
+        { key: 'roles', label: 'Ruoli' },
+      ]
 
   const specialRoleCount =
     werewolfCount + priestCount + gravediggerCount + idiotCount + corruptedJudgeCount + survivorCount
@@ -79,9 +70,11 @@ function CreateRoomPage() {
         idiotCount,
         corruptedJudgeCount,
         survivorCount,
+        remoteJoin,
+        manualRoles,
       })
       storeMasterToken(room.code, room.masterToken)
-      navigate(`/room/${room.code}`)
+      navigate(room.remoteJoin ? `/room/${room.code}` : `/room/${room.code}/roster`)
     } catch (err) {
       setError(err instanceof ApiError ? err.message : 'Impossibile creare la stanza. Riprova.')
     } finally {
@@ -93,7 +86,7 @@ function CreateRoomPage() {
     <BoardPanel>
       <h1>Crea partita</h1>
 
-      <QuestSteps current={step} />
+      <QuestSteps steps={steps} current={step} />
 
       {step === 'mode' && (
         <section className="wizard-step">
@@ -113,6 +106,68 @@ function CreateRoomPage() {
             <Link to="/" className="button">
               Torna indietro
             </Link>
+            <button type="button" className="button button-primary" onClick={() => setStep('participation')}>
+              Avanti
+            </button>
+          </div>
+        </section>
+      )}
+
+      {step === 'participation' && (
+        <section className="wizard-step">
+          <h2>Come partecipano i giocatori?</h2>
+          <div className="option-list">
+            <label className="option">
+              <input type="radio" name="remoteJoin" checked={remoteJoin} onChange={() => setRemoteJoin(true)} />
+              I giocatori si uniscono da remoto, con un codice
+            </label>
+            <label className="option">
+              <input
+                type="radio"
+                name="remoteJoin"
+                checked={!remoteJoin}
+                onChange={() => setRemoteJoin(false)}
+              />
+              Inserisco io i giocatori, nessuno usa il telefono
+            </label>
+          </div>
+          <div className="wizard-actions">
+            <button type="button" className="button" onClick={() => setStep('mode')}>
+              Indietro
+            </button>
+            <button
+              type="button"
+              className="button button-primary"
+              onClick={() => setStep(remoteJoin ? 'players' : 'assignment')}
+            >
+              Avanti
+            </button>
+          </div>
+        </section>
+      )}
+
+      {step === 'assignment' && (
+        <section className="wizard-step">
+          <h2>Come vuoi assegnare i ruoli?</h2>
+          <div className="option-list">
+            <label className="option">
+              <input
+                type="radio"
+                name="manualRoles"
+                checked={!manualRoles}
+                onChange={() => setManualRoles(false)}
+              />
+              Casuale
+            </label>
+            <label className="option">
+              <input type="radio" name="manualRoles" checked={manualRoles} onChange={() => setManualRoles(true)} />
+              Manuale, scelgo io il ruolo di ogni giocatore
+            </label>
+          </div>
+          <div className="wizard-actions">
+            <button type="button" className="button" onClick={() => setStep('participation')}>
+              Indietro
+            </button>
             <button type="button" className="button button-primary" onClick={() => setStep('players')}>
               Avanti
             </button>
@@ -135,7 +190,11 @@ function CreateRoomPage() {
           </div>
           <p>Da {MIN_PLAYERS} a {MAX_PLAYERS} giocatori.</p>
           <div className="wizard-actions">
-            <button type="button" className="button" onClick={() => setStep('mode')}>
+            <button
+              type="button"
+              className="button"
+              onClick={() => setStep(remoteJoin ? 'participation' : 'assignment')}
+            >
               Indietro
             </button>
             <button

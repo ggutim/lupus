@@ -33,6 +33,7 @@ export interface MasterGameState {
   pendingVoteVictimId: number | null
   winner: Alignment | null
   winningRole: Role | null
+  remoteJoin: boolean
 }
 
 async function handleErrorResponse(response: Response, fallbackMessage: string): Promise<never> {

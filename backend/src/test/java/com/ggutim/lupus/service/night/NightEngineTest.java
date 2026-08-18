@@ -69,7 +69,8 @@ class NightEngineTest {
     private Room room(int werewolfCount, int priestCount, int gravediggerCount, int corruptedJudgeCount) {
         Room room = new Room(CODE, "token", GameMode.CLASSIC, 10, Map.of(
                 Role.WEREWOLF, werewolfCount, Role.PRIEST, priestCount,
-                Role.GRAVEDIGGER, gravediggerCount, Role.CORRUPTED_JUDGE, corruptedJudgeCount, Role.VILLAGER, 0));
+                Role.GRAVEDIGGER, gravediggerCount, Role.CORRUPTED_JUDGE, corruptedJudgeCount, Role.VILLAGER, 0),
+                true, false);
         setId(room, nextId++);
         return room;
     }

@@ -10,6 +10,7 @@ import static org.mockito.Mockito.when;
 
 import com.ggutim.lupus.config.GameRules;
 import com.ggutim.lupus.dto.JoinRoomResponse;
+import com.ggutim.lupus.dto.ManualPlayerResponse;
 import com.ggutim.lupus.dto.PlayerRoleResponse;
 import com.ggutim.lupus.dto.RoomStateMessage;
 import com.ggutim.lupus.exception.InvalidRulesetException;
@@ -59,16 +60,23 @@ class PlayerServiceTest {
     @Mock
     private SimpMessagingTemplate messagingTemplate;
 
+    @Mock
+    private RoleAssigner roleAssigner;
+
     private final GameRules gameRules = new GameRules();
 
     private PlayerService playerService() {
         return new PlayerService(roomRepository, playerRepository, roomService, gameService, gameRules,
-                messagingTemplate);
+                messagingTemplate, roleAssigner);
     }
 
     private Room room(int playerCount) {
+        return room(playerCount, true, false);
+    }
+
+    private Room room(int playerCount, boolean remoteJoin, boolean manualRoles) {
         return new Room("ABCD", MASTER_TOKEN, GameMode.CLASSIC, playerCount, Map.of(
-                Role.WEREWOLF, 1, Role.PRIEST, 0, Role.VILLAGER, playerCount - 1));
+                Role.WEREWOLF, 1, Role.PRIEST, 0, Role.VILLAGER, playerCount - 1), remoteJoin, manualRoles);
     }
 
     private List<Player> players(Room room, int count) {
@@ -161,6 +169,122 @@ class PlayerServiceTest {
         when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
 
         assertThatThrownBy(() -> playerService().joinRoom("ABCD", "Alice"))
+                .isInstanceOf(RoomAlreadyStartedException.class);
+    }
+
+    @Test
+    void joinRoom_rejectsWhenRoomDoesNotAcceptRemoteJoins() {
+        Room room = room(6, false, false);
+        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+
+        assertThatThrownBy(() -> playerService().joinRoom("ABCD", "Alice"))
+                .isInstanceOf(InvalidRulesetException.class);
+    }
+
+    // ---------- addPlayerManually ----------
+
+    @Test
+    void addPlayerManually_rejectsWhenRoomAcceptsRemoteJoins() {
+        Room room = room(6);
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+
+        assertThatThrownBy(() -> playerService().addPlayerManually("ABCD", MASTER_TOKEN, "Alice", null))
+                .isInstanceOf(InvalidRulesetException.class);
+    }
+
+    @Test
+    void addPlayerManually_randomRoom_rejectsWhenRoleProvided() {
+        Room room = room(6, false, false);
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.countByRoomId(any())).thenReturn(0L);
+        when(playerRepository.existsByRoomIdAndNicknameIgnoreCase(any(), eq("ALICE"))).thenReturn(false);
+
+        assertThatThrownBy(() -> playerService().addPlayerManually("ABCD", MASTER_TOKEN, "Alice", Role.WEREWOLF))
+                .isInstanceOf(InvalidRulesetException.class);
+    }
+
+    @Test
+    void addPlayerManually_randomRoom_addsPlayerWithoutRole() {
+        Room room = room(6, false, false);
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.countByRoomId(any())).thenReturn(0L);
+        when(playerRepository.existsByRoomIdAndNicknameIgnoreCase(any(), eq("ALICE"))).thenReturn(false);
+        when(playerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        ManualPlayerResponse response = playerService().addPlayerManually("ABCD", MASTER_TOKEN, "Alice", null);
+
+        assertThat(response.nickname()).isEqualTo("ALICE");
+        assertThat(response.role()).isNull();
+        verify(roleAssigner, never()).assignRole(any(), any());
+    }
+
+    @Test
+    void addPlayerManually_manualRoom_rejectsWhenRoleMissing() {
+        Room room = room(6, false, true);
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.countByRoomId(any())).thenReturn(0L);
+        when(playerRepository.existsByRoomIdAndNicknameIgnoreCase(any(), eq("ALICE"))).thenReturn(false);
+
+        assertThatThrownBy(() -> playerService().addPlayerManually("ABCD", MASTER_TOKEN, "Alice", null))
+                .isInstanceOf(InvalidRulesetException.class);
+    }
+
+    @Test
+    void addPlayerManually_manualRoom_rejectsWhenRolePoolExhausted() {
+        Room room = room(6, false, true);
+        Player existingWerewolf = new Player(room, "BOB", "bob-token");
+        existingWerewolf.setRole(Role.WEREWOLF);
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.countByRoomId(any())).thenReturn(1L);
+        when(playerRepository.existsByRoomIdAndNicknameIgnoreCase(any(), eq("ALICE"))).thenReturn(false);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(List.of(existingWerewolf));
+
+        assertThatThrownBy(() -> playerService().addPlayerManually("ABCD", MASTER_TOKEN, "Alice", Role.WEREWOLF))
+                .isInstanceOf(InvalidRulesetException.class);
+    }
+
+    @Test
+    void addPlayerManually_manualRoom_assignsChosenRole() {
+        Room room = room(6, false, true);
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.countByRoomId(any())).thenReturn(0L);
+        when(playerRepository.existsByRoomIdAndNicknameIgnoreCase(any(), eq("ALICE"))).thenReturn(false);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(List.of());
+        when(playerRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));
+
+        playerService().addPlayerManually("ABCD", MASTER_TOKEN, "Alice", Role.WEREWOLF);
+
+        verify(roleAssigner).assignRole(any(Player.class), eq(Role.WEREWOLF));
+    }
+
+    @Test
+    void addPlayerManually_rejectsWhenRoomFull() {
+        Room room = room(3, false, true);
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.countByRoomId(any())).thenReturn(3L);
+
+        assertThatThrownBy(() -> playerService().addPlayerManually("ABCD", MASTER_TOKEN, "Alice", Role.WEREWOLF))
+                .isInstanceOf(RoomFullException.class);
+    }
+
+    @Test
+    void addPlayerManually_rejectsDuplicateNickname() {
+        Room room = room(6, false, true);
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.countByRoomId(any())).thenReturn(1L);
+        when(playerRepository.existsByRoomIdAndNicknameIgnoreCase(any(), eq("ALICE"))).thenReturn(true);
+
+        assertThatThrownBy(() -> playerService().addPlayerManually("ABCD", MASTER_TOKEN, "Alice", Role.WEREWOLF))
+                .isInstanceOf(NicknameTakenException.class);
+    }
+
+    @Test
+    void addPlayerManually_rejectsWhenRoomAlreadyStarted() {
+        Room room = room(6, false, true);
+        room.start();
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+
+        assertThatThrownBy(() -> playerService().addPlayerManually("ABCD", MASTER_TOKEN, "Alice", Role.WEREWOLF))
                 .isInstanceOf(RoomAlreadyStartedException.class);
     }
 
@@ -269,13 +393,26 @@ class PlayerServiceTest {
     void startGame_rejectsWhenNotEnoughPlayersForSpecialRoles() {
         // room configured with 1 werewolf + 1 priest, but only 2 players joined total minus villager slack
         Room room = new Room("ABCD", MASTER_TOKEN, GameMode.CLASSIC, 10, Map.of(
-                Role.WEREWOLF, 3, Role.PRIEST, 2, Role.VILLAGER, 5));
+                Role.WEREWOLF, 3, Role.PRIEST, 2, Role.VILLAGER, 5), true, false);
         List<Player> players = players(room, gameRules.getMinPlayers());
         when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
         when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(players);
 
         assertThatThrownBy(() -> playerService().startGame("ABCD", MASTER_TOKEN))
                 .isInstanceOf(InvalidRulesetException.class);
+
+        verify(gameService, never()).startGame(any(), any());
+    }
+
+    @Test
+    void startGame_rejectsWhenManualRolesRoomNotFullyDealt() {
+        Room room = room(10, false, true);
+        List<Player> players = players(room, gameRules.getMinPlayers());
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(players);
+
+        assertThatThrownBy(() -> playerService().startGame("ABCD", MASTER_TOKEN))
+                .isInstanceOf(NotEnoughPlayersException.class);
 
         verify(gameService, never()).startGame(any(), any());
     }

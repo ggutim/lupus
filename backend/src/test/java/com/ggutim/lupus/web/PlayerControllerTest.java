@@ -7,7 +7,9 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.ggutim.lupus.dto.JoinRoomResponse;
+import com.ggutim.lupus.dto.ManualPlayerResponse;
 import com.ggutim.lupus.dto.PlayerRoleResponse;
+import com.ggutim.lupus.exception.InvalidRulesetException;
 import com.ggutim.lupus.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.exception.NicknameTakenException;
 import com.ggutim.lupus.exception.PlayerNotFoundException;
@@ -99,6 +101,38 @@ class PlayerControllerTest {
                         """)
                 .assertThat()
                 .hasStatus(409);
+    }
+
+    @Test
+    void addPlayerManually_returnsCreatedPlayer() {
+        when(playerService.addPlayerManually(eq("ABCD"), eq("secret-token"), eq("Alice"), eq(Role.WEREWOLF)))
+                .thenReturn(new ManualPlayerResponse(1L, "Alice", Role.WEREWOLF));
+
+        mvc.post().uri("/api/rooms/ABCD/players/manual")
+                .header("X-Master-Token", "secret-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"nickname":"Alice","role":"WEREWOLF"}
+                        """)
+                .assertThat()
+                .hasStatus(201)
+                .bodyJson()
+                .extractingPath("$.role").isEqualTo("WEREWOLF");
+    }
+
+    @Test
+    void addPlayerManually_returnsBadRequestWhenRoomModeMismatched() {
+        when(playerService.addPlayerManually(eq("ABCD"), any(), eq("Alice"), any()))
+                .thenThrow(new InvalidRulesetException("Room ABCD accepts remote joins, not manual entry"));
+
+        mvc.post().uri("/api/rooms/ABCD/players/manual")
+                .header("X-Master-Token", "secret-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"nickname":"Alice"}
+                        """)
+                .assertThat()
+                .hasStatus(400);
     }
 
     @Test

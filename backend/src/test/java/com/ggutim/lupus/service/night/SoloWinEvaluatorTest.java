@@ -25,7 +25,7 @@ class SoloWinEvaluatorTest {
     private long nextId = 1;
 
     private Room room() {
-        Room room = new Room("ABCD", "token", GameMode.CLASSIC, 4, Map.of(Role.VILLAGER, 4));
+        Room room = new Room("ABCD", "token", GameMode.CLASSIC, 4, Map.of(Role.VILLAGER, 4), true, false);
         setId(room, nextId++);
         return room;
     }
