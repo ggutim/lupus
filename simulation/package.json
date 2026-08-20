@@ -1,0 +1,12 @@
+{
+  "name": "lupus-simulation",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "sim": "node simulate.mjs",
+    "postinstall": "playwright install chromium"
+  },
+  "dependencies": {
+    "playwright": "^1.48.0"
+  }
+}
