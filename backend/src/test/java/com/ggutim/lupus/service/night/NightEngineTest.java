@@ -217,6 +217,23 @@ class NightEngineTest {
         nightEngine().requireSelectionIfNeeded(room, Role.CORRUPTED_JUDGE);
     }
 
+    @Test
+    void requireSelectionIfNeeded_throwsWhenSoleHolderIsPendingWerewolfKillTargetAndNoSelectionMade() {
+        // A werewolf kill only takes effect the following day, so the priest
+        // is still fully able (and required) to act on the same night they've
+        // been targeted — the pending target must not be excluded as a holder.
+        Room room = room(1, 1, 0);
+        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
+        Player priest = player(room, "PRIEST", Role.PRIEST, true);
+        mockPlayers(room, List.of(wolf, priest));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.WEREWOLF, priest.getId());
+
+        assertThatThrownBy(() -> engine.requireSelectionIfNeeded(room, Role.PRIEST))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
     // ---------- recordSelection ----------
 
     @Test

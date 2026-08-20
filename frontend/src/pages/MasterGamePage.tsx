@@ -203,17 +203,13 @@ function buildCard(state: MasterGameState): CardContent {
 }
 
 /**
- * Whether a living player still holds {@code role}, excluding whoever's
- * already been picked as a pending deferred-kill target this round
- * (werewolves' or the corrupted judge's) — those kills aren't applied
- * until morning — mirrors the backend's roleHasSelectableHolder so the
- * "Avanti" button doesn't stay disabled waiting for a selection nobody
- * can make.
+ * Whether a living player still holds {@code role}. A deferred kill
+ * (werewolves' or the corrupted judge's) only takes effect the following
+ * day, so a pending target is still fully able to act on their own turn
+ * tonight — mirrors the backend's roleHasSelectableHolder.
  */
 function roleHasSelectableHolder(state: MasterGameState, role: Role): boolean {
-  return state.players.some(
-    (player) => player.alive && !state.lastNightVictimIds.includes(player.id) && player.role === role,
-  )
+  return state.players.some((player) => player.alive && player.role === role)
 }
 
 /** Roles targeting the dead rather than the living, e.g. the gravedigger. */
@@ -366,17 +362,19 @@ function MasterGamePage() {
         </div>
       )}
 
-      {state.phase !== 'GAME_OVER' && (
-        <button type="button" className="button button-primary" onClick={handleAdvance} disabled={!canAdvance || busy}>
-          {busy ? 'Attendere…' : 'Avanti'}
-        </button>
-      )}
+      <div className="game-actions">
+        {state.phase !== 'GAME_OVER' && (
+          <button type="button" className="button button-primary" onClick={handleAdvance} disabled={!canAdvance || busy}>
+            {busy ? 'Attendere…' : 'Avanti'}
+          </button>
+        )}
 
-      {state.phase === 'GAME_OVER' && (
-        <Link to="/" className="button button-primary">
-          Torna alla home
-        </Link>
-      )}
+        {state.phase === 'GAME_OVER' && (
+          <Link to="/" className="button button-primary">
+            Torna alla home
+          </Link>
+        )}
+      </div>
     </BoardPanel>
   )
 }

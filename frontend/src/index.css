@@ -1050,3 +1050,13 @@ select {
 .game-selectable-token .player-token-name {
   color: var(--ink);
 }
+
+.game-actions {
+  width: 100%;
+  max-width: 340px;
+}
+
+.game-actions .button {
+  width: 100%;
+  box-sizing: border-box;
+}

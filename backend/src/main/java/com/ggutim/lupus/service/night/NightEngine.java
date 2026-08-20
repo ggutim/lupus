@@ -150,9 +150,8 @@ public class NightEngine {
     /**
      * Read-only lookup of this round's deferred-kill *targets* —
      * not necessarily deaths, see {@link #resolveDeferredKillsAndClearState}
-     * — without applying anything. Used both mid-night (to exclude a
-     * pending target from other roles' holder checks, where "will
-     * this kill actually land" isn't known yet) and for DTO assembly.
+     * — without applying anything. Used for DTO assembly (e.g. narrating
+     * who died once the deferred kills are actually resolved at dawn).
      */
     public List<Long> findLastNightVictims(Room room) {
         return deferredKillTargetsThisRound(room);
@@ -219,17 +218,13 @@ public class NightEngine {
 
     /**
      * Whether {@code role} has a living player who could plausibly act
-     * tonight — excluding whoever's already been chosen as a pending
-     * deferred-kill target this round (werewolves' or the corrupted
-     * judge's), even though those kills aren't applied until morning,
-     * so a role sharing one of those targets isn't asked to act on a
-     * technicality.
+     * tonight. A deferred kill (werewolves' or the corrupted judge's)
+     * only takes effect the following day — the target is still fully
+     * alive for the rest of tonight, including their own turn if they
+     * hold another acting role, so a pending target is not excluded here.
      */
     private boolean roleHasSelectableHolder(Room room, Role role) {
-        List<Long> pendingDeferredKillTargets = deferredKillTargetsThisRound(room);
-
         return playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId()).stream()
-                .filter(player -> !pendingDeferredKillTargets.contains(player.getId()))
                 .anyMatch(player -> player.getRole() == role);
     }
 }
