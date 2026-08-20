@@ -9,9 +9,9 @@ export function WerewolfIcon(props: IconProps) {
         d="M14 46c-3-10-2-20 4-27-1-4 1-8 4-9 1 3 2 5 4 6 3-2 7-2 10 0 2-1 3-3 4-6 3 1 5 5 4 9 6 7 7 17 4 27-2-3-5-5-8-5-2 4-5 7-8 7s-6-3-8-7c-3 0-6 2-10 5Z"
         fill="currentColor"
       />
-      <path d="M22 30l4 6 6-4 6 4 4-6" stroke="#1a1108" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      <circle cx="26" cy="34" r="1.6" fill="#1a1108" />
-      <circle cx="38" cy="34" r="1.6" fill="#1a1108" />
+      <path d="M22 30l4 6 6-4 6 4 4-6" stroke="#fff" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+      <circle cx="26" cy="34" r="1.6" fill="#fff" />
+      <circle cx="38" cy="34" r="1.6" fill="#fff" />
     </svg>
   )
 }
@@ -19,10 +19,10 @@ export function WerewolfIcon(props: IconProps) {
 export function PriestIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-      <path d="M32 8c9 0 16 7 16 16v6H16v-6c0-9 7-16 16-16Z" fill="currentColor" />
-      <rect x="14" y="30" width="36" height="6" rx="2" fill="currentColor" />
-      <path d="M24 40h16v14a8 8 0 0 1-16 0V40Z" fill="currentColor" />
-      <path d="M32 14v10M27 19h10" stroke="#1a1108" strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M32 8c9 0 15 8 15 17v5H17v-5c0-9 6-17 15-17Z" fill="currentColor" />
+      <rect x="15" y="30" width="34" height="6" rx="2" fill="currentColor" />
+      <rect x="22" y="38" width="20" height="18" rx="3" fill="currentColor" />
+      <path d="M32 14v8M28 18h8" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" />
     </svg>
   )
 }
@@ -30,19 +30,10 @@ export function PriestIcon(props: IconProps) {
 export function GravediggerIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-      <path
-        d="M22 58V34a10 10 0 0 1 20 0v24Z"
-        fill="currentColor"
-      />
-      <path d="M22 44h20" stroke="#1a1108" strokeWidth="2.4" strokeLinecap="round" />
-      <path d="M32 34v10" stroke="#1a1108" strokeWidth="2.4" strokeLinecap="round" />
-      <path
-        d="M14 20l10 8"
-        stroke="currentColor"
-        strokeWidth="5"
-        strokeLinecap="round"
-      />
-      <rect x="8" y="10" width="14" height="6" rx="2" transform="rotate(-32 8 10)" fill="currentColor" />
+      <rect x="20" y="4" width="24" height="6" rx="3" fill="currentColor" />
+      <rect x="29" y="8" width="6" height="20" rx="3" fill="currentColor" />
+      <path d="M24 28h16v18a8 8 0 0 1-16 0V28Z" fill="currentColor" />
+      <path d="M24 36h16" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
     </svg>
   )
 }
@@ -50,16 +41,11 @@ export function GravediggerIcon(props: IconProps) {
 export function IdiotIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-      <path
-        d="M32 10 20 26h8l-14 14 12-2-8 14 14-8v6h8v-6l14 8-8-14 12 2-14-14h8Z"
-        fill="currentColor"
-      />
-      <circle cx="16" cy="26" r="3" fill="currentColor" />
-      <circle cx="48" cy="26" r="3" fill="currentColor" />
+      <path d="M14 40 20 14l8 12 4-18 4 18 8-12 6 26c-6-4-13-6-20-6s-14 2-20 6Z" fill="currentColor" />
+      <circle cx="20" cy="12" r="3" fill="currentColor" />
       <circle cx="32" cy="8" r="3" fill="currentColor" />
-      <circle cx="27" cy="34" r="1.6" fill="#1a1108" />
-      <circle cx="37" cy="34" r="1.6" fill="#1a1108" />
-      <path d="M28 40q4 3 8 0" stroke="#1a1108" strokeWidth="2" strokeLinecap="round" fill="none" />
+      <circle cx="44" cy="12" r="3" fill="currentColor" />
+      <path d="M20 44q12 8 24 0" stroke="#fff" strokeWidth="2.4" strokeLinecap="round" fill="none" />
     </svg>
   )
 }
@@ -67,12 +53,10 @@ export function IdiotIcon(props: IconProps) {
 export function CorruptedJudgeIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-      <rect x="10" y="42" width="24" height="7" rx="2" fill="currentColor" transform="rotate(-35 10 42)" />
-      <rect x="30" y="14" width="12" height="20" rx="2" fill="currentColor" transform="rotate(-35 30 14)" />
-      <rect x="40" y="6" width="18" height="7" rx="2" fill="currentColor" transform="rotate(-35 40 6)" />
-      <path d="M46 34c4 4 6 10 4 14" stroke="#1a1108" strokeWidth="2.4" strokeLinecap="round" fill="none" />
-      <path d="M9 50l-3 6h14l-3-6" fill="currentColor" />
-      <circle cx="47" cy="14" r="2" fill="#1a1108" />
+      <rect x="8" y="38" width="22" height="8" rx="3" fill="currentColor" />
+      <rect x="26" y="10" width="14" height="24" rx="3" fill="currentColor" transform="rotate(-40 33 22)" />
+      <rect x="40" y="4" width="18" height="8" rx="3" fill="currentColor" transform="rotate(-40 49 8)" />
+      <path d="M14 50h16" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
     </svg>
   )
 }
@@ -80,14 +64,8 @@ export function CorruptedJudgeIcon(props: IconProps) {
 export function SurvivorIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
-      <path
-        d="M32 8 12 16v14c0 14 8 24 20 26 12-2 20-12 20-26V16Z"
-        fill="currentColor"
-      />
-      <path
-        d="M32 22c-2-3-5-4-8-2-3 2-3 6 0 9l8 8 8-8c3-3 3-7 0-9-3-2-6-1-8 2Z"
-        fill="#1a1108"
-      />
+      <path d="M32 6 14 13v15c0 15 8 25 18 30 10-5 18-15 18-30V13Z" fill="currentColor" />
+      <path d="M24 30l6 6 10-12" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round" fill="none" />
     </svg>
   )
 }
@@ -97,7 +75,6 @@ export function VillagerIcon(props: IconProps) {
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
       <circle cx="32" cy="18" r="9" fill="currentColor" />
       <path d="M14 52c0-11 8-18 18-18s18 7 18 18v2H14v-2Z" fill="currentColor" />
-      <path d="M20 30l-6 20M44 30l6 20" stroke="currentColor" strokeWidth="4" strokeLinecap="round" />
     </svg>
   )
 }
@@ -131,7 +108,9 @@ export function MoonIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
       <path
-        d="M42 8c-13 2-22 13-22 26s9 24 22 26C50 56 56 45 56 32c0-3-.4-6-1-9-4 6-11 10-19 10-12 0-22-10-22-22 0-3 .6-6 1.6-9C21 1 32-1 42 8Z"
+        fillRule="evenodd"
+        clipRule="evenodd"
+        d="M10 32A22 22 0 1 1 54 32A22 22 0 1 1 10 32ZM17 30A18 18 0 1 1 53 30A18 18 0 1 1 17 30Z"
         fill="currentColor"
       />
     </svg>

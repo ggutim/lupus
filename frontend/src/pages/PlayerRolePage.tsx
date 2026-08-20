@@ -17,6 +17,7 @@ import {
   VillagerIcon,
   WerewolfIcon,
 } from '../components/icons'
+import { ROLE_ALIGNMENT } from '../roleAlignment'
 import { ROLE_LABELS } from '../roleLabels'
 
 const ROLE_INFO: Record<Role, { description: string; icon: ReactNode }> = {
@@ -144,7 +145,7 @@ function PlayerRolePage() {
       >
         {revealed ? (
           <div className="role-reveal">
-            <div className="role-reveal-icon">{info.icon}</div>
+            <div className={'role-reveal-icon align-' + ROLE_ALIGNMENT[status.role].toLowerCase()}>{info.icon}</div>
             <h2 className="role-reveal-label">{ROLE_LABELS[status.role]}</h2>
             <p className="role-reveal-description">{info.description}</p>
           </div>

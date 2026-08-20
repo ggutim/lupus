@@ -15,6 +15,8 @@ import BoardPanel from '../components/BoardPanel'
 import VillageOverviewDialog from '../components/VillageOverviewDialog'
 import { useDialog } from '../components/useDialog'
 import { useMasterAccess } from '../components/useMasterAccess'
+import { ROLE_ALIGNMENT, type RoleAlignment } from '../roleAlignment'
+import { ROLE_LABELS } from '../roleLabels'
 import {
   CorruptedJudgeIcon,
   EyeIcon,
@@ -31,6 +33,8 @@ interface CardContent {
   icon: ReactNode
   title: string
   body: ReactNode
+  /** Colors the card icon by the acting role's side; omitted for narration-only cards (moon, sun, skull, eye). */
+  align?: RoleAlignment
 }
 
 interface NightRoleContent {
@@ -104,8 +108,24 @@ function buildNightActionsCard(state: MasterGameState): CardContent {
     return { icon: <MoonIcon />, title: 'Notte', body: 'Attendere…' }
   }
 
+  const align = ROLE_ALIGNMENT[currentNightRole]
+
   if (currentNightStepKind === 'WAKE_UP') {
-    return { icon: content.icon, title: content.wakeUpTitle, body: content.wakeUpBody }
+    return { icon: content.icon, title: content.wakeUpTitle, body: content.wakeUpBody, align }
+  }
+
+  if (!roleHasSelectableHolder(state, currentNightRole)) {
+    return {
+      icon: content.icon,
+      title: content.selectTitle,
+      align,
+      body: (
+        <p className="game-card-hint">
+          Non c'è più nessun {ROLE_LABELS[currentNightRole].toLowerCase()} in vita: il potere non può essere usato
+          questa notte.
+        </p>
+      ),
+    }
   }
 
   const body =
@@ -113,7 +133,7 @@ function buildNightActionsCard(state: MasterGameState): CardContent {
       ? content.renderResult(playerName(players, pendingNightActionTargetId), nightActionResult)
       : content.selectPrompt
 
-  return { icon: content.icon, title: content.selectTitle, body }
+  return { icon: content.icon, title: content.selectTitle, body, align }
 }
 
 function buildCard(state: MasterGameState): CardContent {
@@ -325,7 +345,7 @@ function MasterGamePage() {
       />
 
       <div className="game-card">
-        <div className="game-card-icon">{card.icon}</div>
+        <div className={'game-card-icon' + (card.align ? ' align-' + card.align.toLowerCase() : '')}>{card.icon}</div>
         <h2 className="game-card-title">{card.title}</h2>
         <div className="game-card-body">{card.body}</div>
       </div>

@@ -1,4 +1,5 @@
 import type { Role } from '../api/rooms'
+import { ROLE_ALIGNMENT } from '../roleAlignment'
 import { ROLE_LABELS } from '../roleLabels'
 
 export interface VillageOverviewPlayer {
@@ -35,7 +36,14 @@ function VillageOverviewDialog({ open, onClose, players }: VillageOverviewDialog
 
         <ul className="village-overview-list">
           {players.map((player) => (
-            <li key={player.id} className={'village-overview-row' + (player.alive ? '' : ' is-dead')}>
+            <li
+              key={player.id}
+              className={
+                'village-overview-row' +
+                (player.role ? ' align-' + ROLE_ALIGNMENT[player.role].toLowerCase() : '') +
+                (player.alive ? '' : ' is-dead')
+              }
+            >
               <span className="village-overview-name">{player.nickname}</span>
               <span className="village-overview-meta">
                 {player.role && <span className="village-overview-role">{ROLE_LABELS[player.role]}</span>}

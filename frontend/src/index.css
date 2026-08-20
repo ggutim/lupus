@@ -34,6 +34,8 @@
   --wax-red-dark: #4d1212;
   --forest: #33472f;
   --forest-dark: #22301f;
+  --stone: #5c5850;
+  --stone-dark: #403d38;
 
   color-scheme: light;
   font: 19px/1.5 var(--font-body);
@@ -399,11 +401,15 @@ select {
   flex: none;
   width: 40px;
   height: 40px;
-  color: var(--wax-red);
+  color: var(--stone);
   filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.3));
 }
 
-.role-card.is-readonly .role-card-icon {
+.role-card-icon.align-evil {
+  color: var(--wax-red);
+}
+
+.role-card-icon.align-good {
   color: var(--forest);
 }
 
@@ -445,6 +451,44 @@ select {
   text-align: center;
   font: 700 1.1rem var(--font-display);
   color: var(--ink);
+}
+
+/* ---------- "Altri ruoli" expandable section ---------- */
+
+.altri-roles > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.altri-roles > summary::-webkit-details-marker {
+  display: none;
+}
+
+.altri-roles .role-cards {
+  margin-top: 10px;
+}
+
+.altri-toggle {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 8px 12px;
+  border-radius: 6px;
+  border: 2px dashed var(--wood-light);
+  color: var(--ink-soft);
+  font-family: var(--font-display);
+  font-size: 0.72rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.altri-chev {
+  transition: transform 0.15s;
+}
+
+.altri-roles[open] .altri-chev {
+  transform: rotate(180deg);
 }
 
 /* ---------- Quest step indicator ---------- */
@@ -493,13 +537,15 @@ select {
 }
 
 .quest-step-label {
-  font-size: 0.62rem;
+  display: block;
+  height: 13px;
+  font-size: 0.68rem;
   text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: var(--ink-soft);
-  font-weight: 600;
+  letter-spacing: 0.05em;
+  color: var(--ink);
+  font-weight: 700;
   text-align: center;
-  word-break: break-all;
+  white-space: nowrap;
 }
 
 .quest-step:not(:last-child)::after {
@@ -767,14 +813,25 @@ select {
   gap: 12px;
   padding: 10px 14px;
   background: var(--parchment-light);
-  border: 2px solid var(--wood-light);
+  border: 2.5px solid var(--wood-light);
   border-radius: 6px;
 }
 
+.village-overview-row.align-evil {
+  border-color: var(--wax-red);
+}
+
+.village-overview-row.align-good {
+  border-color: var(--forest);
+}
+
+.village-overview-row.align-neutral {
+  border-color: var(--stone);
+}
+
 .village-overview-row.is-dead {
-  background: var(--wood-dark);
-  border-color: var(--wood-darkest);
-  color: var(--parchment-light);
+  filter: grayscale(0.6) brightness(0.85);
+  opacity: 0.8;
 }
 
 .village-overview-name {
@@ -793,10 +850,6 @@ select {
   color: var(--ink-soft);
 }
 
-.village-overview-row.is-dead .village-overview-role {
-  color: var(--parchment-shadow);
-}
-
 .village-overview-status {
   font-size: 0.8rem;
   text-transform: uppercase;
@@ -805,7 +858,7 @@ select {
 }
 
 .village-overview-row.is-dead .village-overview-status {
-  color: var(--parchment-shadow);
+  text-decoration: line-through;
 }
 
 /* ---------- Role reveal ---------- */
@@ -827,8 +880,16 @@ select {
 .role-reveal-icon {
   width: 72px;
   height: 72px;
-  color: var(--wax-red);
+  color: var(--stone);
   filter: drop-shadow(0 2px 1px rgba(255, 255, 255, 0.3));
+}
+
+.role-reveal-icon.align-evil {
+  color: var(--wax-red);
+}
+
+.role-reveal-icon.align-good {
+  color: var(--forest);
 }
 
 .role-reveal-label {
@@ -930,7 +991,15 @@ select {
 .game-card-icon {
   width: 56px;
   height: 56px;
+  color: var(--stone);
+}
+
+.game-card-icon.align-evil {
   color: var(--wax-red);
+}
+
+.game-card-icon.align-good {
+  color: var(--forest);
 }
 
 .game-card-title {
