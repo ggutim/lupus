@@ -11,17 +11,36 @@ interface RoleCardProps {
   max?: number
   onChange?: (count: number) => void
   readOnly?: boolean
+  /** Shows a small "i" button next to the label that opens an explanatory popup; omitted for a card with no rules to explain. */
+  onInfoClick?: () => void
 }
 
 /**
  * A single role's selection card: icon, name, and a +/- stepper (or a
  * read-only count, for roles like the villager whose number is derived).
  */
-function RoleCard({ icon, label, count, align, min = 0, max = 99, onChange, readOnly = false }: RoleCardProps) {
+function RoleCard({
+  icon,
+  label,
+  count,
+  align,
+  min = 0,
+  max = 99,
+  onChange,
+  readOnly = false,
+  onInfoClick,
+}: RoleCardProps) {
   return (
     <div className={'role-card' + (readOnly ? ' is-readonly' : '')}>
       <div className={'role-card-icon' + (align ? ' align-' + align.toLowerCase() : '')}>{icon}</div>
-      <div className="role-card-label">{label}</div>
+      <div className="role-card-label">
+        <span className="role-card-name">{label}</span>
+        {onInfoClick && (
+          <button type="button" className="info-btn" onClick={onInfoClick} aria-label={`Cos'è: ${label}`}>
+            i
+          </button>
+        )}
+      </div>
       {readOnly ? (
         <div className="role-card-count">{count}</div>
       ) : (

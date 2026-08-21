@@ -353,6 +353,12 @@ select {
   accent-color: var(--wax-red);
 }
 
+.option-label {
+  flex: 1;
+  text-align: left;
+  cursor: pointer;
+}
+
 .field {
   display: flex;
   flex-direction: column;
@@ -389,8 +395,8 @@ select {
 .role-card {
   display: flex;
   align-items: center;
-  gap: 14px;
-  padding: 10px 14px;
+  gap: 8px;
+  padding: 10px 10px;
   border-radius: 6px;
   border: 2px solid var(--wood);
   background: var(--parchment-light);
@@ -399,8 +405,8 @@ select {
 
 .role-card-icon {
   flex: none;
-  width: 40px;
-  height: 40px;
+  width: 34px;
+  height: 34px;
   color: var(--stone);
   filter: drop-shadow(0 1px 0 rgba(255, 255, 255, 0.3));
 }
@@ -415,20 +421,54 @@ select {
 
 .role-card-label {
   flex: 1;
+  display: flex;
+  align-items: center;
+  gap: 4px;
   text-align: left;
+  font-size: 0.9rem;
   font-weight: 600;
   color: var(--ink-soft);
+}
+
+.role-card-name {
+  flex: 1;
+}
+
+.info-btn {
+  appearance: none;
+  flex: none;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  border: 1.5px solid var(--wood-light);
+  background: transparent;
+  color: var(--wood);
+  font: 700 0.66rem/1 var(--font-display);
+  font-style: italic;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  cursor: pointer;
+  transition: background 0.15s ease, color 0.15s ease, border-color 0.15s ease;
+}
+
+.info-btn:hover,
+.info-btn:focus-visible {
+  background: var(--gold);
+  color: var(--wood-darkest);
+  border-color: var(--gold);
 }
 
 .role-card-stepper {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 6px;
 }
 
 .role-card-step-btn {
-  width: 28px;
-  height: 28px;
+  width: 26px;
+  height: 26px;
   border-radius: 50%;
   border: 2px solid var(--wood-darkest);
   background: linear-gradient(180deg, var(--wood-light), var(--wood));
@@ -784,6 +824,79 @@ select {
 
 .dialog-actions .button {
   flex: 1;
+}
+
+/* ---------- Info dialog (role/mode rules popup) ---------- */
+
+.info-dialog-box {
+  max-width: 340px;
+  text-align: left;
+}
+
+.info-dialog-box .dialog-title {
+  text-align: center;
+}
+
+.info-dialog-icon {
+  flex: none;
+  width: 40px;
+  height: 40px;
+  color: var(--stone);
+}
+
+.info-dialog-icon.align-evil {
+  color: var(--wax-red);
+}
+
+.info-dialog-icon.align-good {
+  color: var(--forest);
+}
+
+.dialog-align-tag {
+  align-self: center;
+  margin-top: -8px;
+  padding: 3px 12px;
+  border-radius: 999px;
+  font: 700 0.68rem/1 var(--font-display);
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.dialog-align-tag.align-evil {
+  background: #f3d8d8;
+  color: var(--wax-red);
+}
+
+.dialog-align-tag.align-good {
+  background: #dbe6d6;
+  color: var(--forest);
+}
+
+.info-dialog-body {
+  width: 100%;
+  max-height: 46vh;
+  overflow-y: auto;
+  color: var(--ink-soft);
+  font-size: 1rem;
+  line-height: 1.55;
+}
+
+.info-dialog-body p {
+  margin: 0 0 10px;
+}
+
+.info-dialog-body ul {
+  margin: 0 0 10px;
+  padding-left: 20px;
+}
+
+.info-dialog-body li {
+  margin-bottom: 6px;
+}
+
+.info-dialog-body p:last-child,
+.info-dialog-body ul:last-child {
+  margin-bottom: 0;
 }
 
 /* ---------- Village overview ---------- */

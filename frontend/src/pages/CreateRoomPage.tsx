@@ -4,19 +4,13 @@ import { ApiError, createRoom, type GameMode } from '../api/rooms'
 import { storeMasterToken } from '../api/masterToken'
 import { MAX_PLAYERS, MIN_PLAYERS } from '../api/gameRules'
 import BoardPanel from '../components/BoardPanel'
+import InfoDialog from '../components/InfoDialog'
 import QuestSteps from '../components/QuestSteps'
 import RoleCard from '../components/RoleCard'
 import { ROLE_ALIGNMENT } from '../roleAlignment'
-import {
-  CorruptedJudgeIcon,
-  GravediggerIcon,
-  IdiotIcon,
-  MeepleIcon,
-  PriestIcon,
-  SurvivorIcon,
-  VillagerIcon,
-  WerewolfIcon,
-} from '../components/icons'
+import { ROLE_LABELS } from '../roleLabels'
+import { ROLE_SETUP_INFO, type AssignableRole } from '../roleSetupInfo'
+import { MeepleIcon, MoonIcon } from '../components/icons'
 
 type Step = 'mode' | 'participation' | 'assignment' | 'players' | 'roles'
 
@@ -35,6 +29,8 @@ function CreateRoomPage() {
   const [corruptedJudgeCount, setCorruptedJudgeCount] = useState(0)
   const [survivorCount, setSurvivorCount] = useState(0)
   const [otherRolesOpen, setOtherRolesOpen] = useState(false)
+  const [modeInfoOpen, setModeInfoOpen] = useState(false)
+  const [infoRole, setInfoRole] = useState<AssignableRole | null>(null)
 
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -103,15 +99,26 @@ function CreateRoomPage() {
               />
               Classica
             </label>
-            <label className="option">
+            <div className="option">
               <input
                 type="radio"
+                id="mode-afterlife"
                 name="gameMode"
                 checked={gameMode === 'AFTERLIFE'}
                 onChange={() => setGameMode('AFTERLIFE')}
               />
-              Aldilà — i giocatori morti continuano a giocare, come fantasmi o angeli
-            </label>
+              <label htmlFor="mode-afterlife" className="option-label">
+                Aldilà
+              </label>
+              <button
+                type="button"
+                className="info-btn"
+                onClick={() => setModeInfoOpen(true)}
+                aria-label="Cos'è la modalità Aldilà"
+              >
+                i
+              </button>
+            </div>
           </div>
           <div className="wizard-actions">
             <Link to="/" className="button">
@@ -225,20 +232,22 @@ function CreateRoomPage() {
           <h2>Assegna i ruoli</h2>
           <div className="role-cards">
             <RoleCard
-              icon={<WerewolfIcon />}
+              icon={ROLE_SETUP_INFO.WEREWOLF.icon}
               label="Lupi mannari"
               align={ROLE_ALIGNMENT.WEREWOLF}
               count={werewolfCount}
               min={1}
               onChange={setWerewolfCount}
+              onInfoClick={() => setInfoRole('WEREWOLF')}
             />
             <RoleCard
-              icon={<PriestIcon />}
+              icon={ROLE_SETUP_INFO.PRIEST.icon}
               label="Sacerdoti"
               align={ROLE_ALIGNMENT.PRIEST}
               count={priestCount}
               min={0}
               onChange={setPriestCount}
+              onInfoClick={() => setInfoRole('PRIEST')}
             />
 
             <details className="altri-roles" open={otherRolesOpen} onToggle={(e) => setOtherRolesOpen(e.currentTarget.open)}>
@@ -251,47 +260,52 @@ function CreateRoomPage() {
               </summary>
               <div className="role-cards">
                 <RoleCard
-                  icon={<GravediggerIcon />}
+                  icon={ROLE_SETUP_INFO.GRAVEDIGGER.icon}
                   label="Becchini"
                   align={ROLE_ALIGNMENT.GRAVEDIGGER}
                   count={gravediggerCount}
                   min={0}
                   onChange={setGravediggerCount}
+                  onInfoClick={() => setInfoRole('GRAVEDIGGER')}
                 />
                 <RoleCard
-                  icon={<IdiotIcon />}
+                  icon={ROLE_SETUP_INFO.IDIOT.icon}
                   label="Idioti"
                   align={ROLE_ALIGNMENT.IDIOT}
                   count={idiotCount}
                   min={0}
                   onChange={setIdiotCount}
+                  onInfoClick={() => setInfoRole('IDIOT')}
                 />
                 <RoleCard
-                  icon={<CorruptedJudgeIcon />}
+                  icon={ROLE_SETUP_INFO.CORRUPTED_JUDGE.icon}
                   label="Giudice corrotto"
                   align={ROLE_ALIGNMENT.CORRUPTED_JUDGE}
                   count={corruptedJudgeCount}
                   min={0}
                   max={1}
                   onChange={setCorruptedJudgeCount}
+                  onInfoClick={() => setInfoRole('CORRUPTED_JUDGE')}
                 />
                 <RoleCard
-                  icon={<SurvivorIcon />}
+                  icon={ROLE_SETUP_INFO.SURVIVOR.icon}
                   label="Sopravvissuti"
                   align={ROLE_ALIGNMENT.SURVIVOR}
                   count={survivorCount}
                   min={0}
                   onChange={setSurvivorCount}
+                  onInfoClick={() => setInfoRole('SURVIVOR')}
                 />
               </div>
             </details>
 
             <RoleCard
-              icon={<VillagerIcon />}
+              icon={ROLE_SETUP_INFO.VILLAGER.icon}
               label="Contadini"
               align={ROLE_ALIGNMENT.VILLAGER}
               count={villagerCount}
               readOnly
+              onInfoClick={() => setInfoRole('VILLAGER')}
             />
           </div>
           {rolesExceedPlayers && (
@@ -313,6 +327,37 @@ function CreateRoomPage() {
           </div>
         </section>
       )}
+
+      <InfoDialog open={modeInfoOpen} onClose={() => setModeInfoOpen(false)} icon={<MoonIcon />} title="Modalità Aldilà">
+        <p>
+          Anche i giocatori morti continuano a giocare. Chi muore malvagio diventa un <strong>fantasma</strong>; chi
+          muore buono diventa un <strong>angelo</strong>. Gli idioti, essendo neutrali, restano semplicemente morti.
+        </p>
+        <ul>
+          <li>
+            <strong>Fantasmi</strong> — ogni notte, insieme, maledicono due giocatori vivi per quella notte sola: al
+            sacerdote appaiono con l'allineamento invertito.
+          </li>
+          <li>
+            <strong>Angeli</strong> — ogni notte proteggono un giocatore vivo dai lupi mannari (non dal giudice
+            corrotto). Se proteggono un maledetto, quel giocatore non potrà più essere protetto in futuro.
+          </li>
+        </ul>
+        <p>
+          L'ordine della notte cambia: <em>giudice corrotto → becchino → fantasmi → angeli → lupi mannari →
+          sacerdote.</em> Fantasmi e angeli si svegliano solo se c'è già almeno un morto.
+        </p>
+      </InfoDialog>
+
+      <InfoDialog
+        open={infoRole !== null}
+        onClose={() => setInfoRole(null)}
+        icon={infoRole ? ROLE_SETUP_INFO[infoRole].icon : null}
+        align={infoRole ? ROLE_ALIGNMENT[infoRole] : undefined}
+        title={infoRole ? ROLE_LABELS[infoRole] : ''}
+      >
+        <p>{infoRole && ROLE_SETUP_INFO[infoRole].description}</p>
+      </InfoDialog>
     </BoardPanel>
   )
 }
