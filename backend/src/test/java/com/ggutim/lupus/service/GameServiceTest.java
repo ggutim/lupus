@@ -103,6 +103,14 @@ class GameServiceTest {
         return room;
     }
 
+    private Room afterlifeStartedRoom(GamePhase phase) {
+        Room room = new Room(CODE, MASTER_TOKEN, GameMode.AFTERLIFE, 4, Map.of(Role.VILLAGER, 4), true, false);
+        setId(room, nextId++);
+        room.start();
+        room.setPhase(phase);
+        return room;
+    }
+
     private Player player(Room room, String nickname, Role role, boolean alive) {
         Player player = new Player(room, nickname, nickname.toLowerCase() + "-token");
         setId(player, nextId++);
@@ -210,6 +218,44 @@ class GameServiceTest {
         assertThat(state.pendingNightActionTargetId()).isEqualTo(42L);
         assertThat(state.nightActionResult()).isEqualTo(Alignment.EVIL);
         assertThat(state.lastNightVictimIds()).containsExactly(7L, 8L);
+    }
+
+    @Test
+    void getGameState_flipsNightActionResultAndSetsCursedFlagWhenTargetIsCursed() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
+        room.setCurrentNightRole(Role.PRIEST);
+        room.setCurrentNightStepKind(NightStepKind.SELECT);
+        mockMasterRoom(room);
+
+        NightAction priestAction = new NightAction(room, room.getRoundNumber(), Role.PRIEST);
+        priestAction.setTargetPlayerId(42L);
+        priestAction.setResultAlignment(Alignment.EVIL);
+        when(nightEngine.findAction(room, Role.PRIEST)).thenReturn(Optional.of(priestAction));
+        when(nightEngine.isCursedThisRound(room, 42L)).thenReturn(true);
+
+        MasterGameStateResponse state = gameService().getGameState(CODE, MASTER_TOKEN);
+
+        assertThat(state.nightActionResult()).isEqualTo(Alignment.GOOD);
+        assertThat(state.nightActionResultCursed()).isTrue();
+    }
+
+    @Test
+    void getGameState_doesNotFlipNightActionResultWhenTargetIsNotCursed() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
+        room.setCurrentNightRole(Role.PRIEST);
+        room.setCurrentNightStepKind(NightStepKind.SELECT);
+        mockMasterRoom(room);
+
+        NightAction priestAction = new NightAction(room, room.getRoundNumber(), Role.PRIEST);
+        priestAction.setTargetPlayerId(42L);
+        priestAction.setResultAlignment(Alignment.EVIL);
+        when(nightEngine.findAction(room, Role.PRIEST)).thenReturn(Optional.of(priestAction));
+        when(nightEngine.isCursedThisRound(room, 42L)).thenReturn(false);
+
+        MasterGameStateResponse state = gameService().getGameState(CODE, MASTER_TOKEN);
+
+        assertThat(state.nightActionResult()).isEqualTo(Alignment.EVIL);
+        assertThat(state.nightActionResultCursed()).isFalse();
     }
 
     // ---------- getVillageOverview ----------
@@ -373,6 +419,38 @@ class GameServiceTest {
     }
 
     @Test
+    void advancePhase_appliesAfterlifeTransitionToNightKillVictimsInAfterlifeMode() {
+        Room room = afterlifeStartedRoom(GamePhase.NIGHT_ACTIONS);
+        room.setCurrentNightRole(Role.WEREWOLF);
+        room.setCurrentNightStepKind(NightStepKind.SELECT);
+        Player victim = player(room, "V1", Role.VILLAGER, true);
+        mockMasterRoom(room);
+        when(nightEngine.nextRole(room, Role.WEREWOLF)).thenReturn(Optional.empty());
+        when(nightEngine.resolveDeferredKillsAndClearState(room)).thenReturn(List.of(victim.getId()));
+        when(playerRepository.findById(victim.getId())).thenReturn(Optional.of(victim));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
+
+        gameService().advancePhase(CODE, MASTER_TOKEN);
+
+        verify(roleAssigner).applyAfterlifeDeathTransition(room, victim);
+    }
+
+    @Test
+    void advancePhase_doesNotApplyAfterlifeTransitionInClassicMode() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
+        room.setCurrentNightRole(Role.WEREWOLF);
+        room.setCurrentNightStepKind(NightStepKind.SELECT);
+        mockMasterRoom(room);
+        when(nightEngine.nextRole(room, Role.WEREWOLF)).thenReturn(Optional.empty());
+        when(nightEngine.resolveDeferredKillsAndClearState(room)).thenReturn(List.of(99L));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
+
+        gameService().advancePhase(CODE, MASTER_TOKEN);
+
+        verify(roleAssigner, never()).applyAfterlifeDeathTransition(any(), any());
+    }
+
+    @Test
     void advancePhase_endsGameWhenNightResolutionDecidesAWinner() {
         Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
         room.setCurrentNightRole(Role.WEREWOLF);
@@ -486,6 +564,20 @@ class GameServiceTest {
         assertThat(result.winningRole()).isEqualTo(Role.IDIOT);
         assertThat(result.winner()).isNull();
         verify(winConditionEvaluator, never()).evaluate(any());
+    }
+
+    @Test
+    void advancePhase_appliesAfterlifeTransitionToVoteKillVictimInAfterlifeMode() {
+        Room room = afterlifeStartedRoom(GamePhase.VOTE_SELECT_TARGET);
+        Player voted = player(room, "WOLF", Role.WEREWOLF, true);
+        room.setPendingVoteVictimId(voted.getId());
+        mockMasterRoom(room);
+        when(playerRepository.findById(voted.getId())).thenReturn(Optional.of(voted));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
+
+        gameService().advancePhase(CODE, MASTER_TOKEN);
+
+        verify(roleAssigner).applyAfterlifeDeathTransition(room, voted);
     }
 
     @Test

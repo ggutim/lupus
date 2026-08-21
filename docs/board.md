@@ -7,7 +7,7 @@
 | 3  | Implement village overview for both master (see all roles) and players (see who died and who's alive)       | DONE    |
 | 4  | When chosing who to kill, werewolves choiche must exclude werewolves                                        | DONE    |
 | 5  | Narrate only mode, so player don't have to register to the session                                          | DONE    |
-| 6  | Implement afterlife mode, introducing "ghost" and "angel" roles                                             | BACKLOG |
+| 6  | Implement afterlife mode, introducing "ghost" and "angel" roles                                             | DONE    |
 | 7  | Card given to a player should be hidden by default. Discover only on tap                                    | DONE    |
 | 8  | New evil role: "corrupted judge"                                                                            | DONE    |
 | 9  | New evil role: "killer"                                                                                     | BACKLOG |

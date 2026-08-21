@@ -2,6 +2,7 @@ package com.ggutim.lupus.service.night;
 
 import com.ggutim.lupus.exception.InvalidGamePhaseException;
 import com.ggutim.lupus.exception.PlayerNotFoundException;
+import com.ggutim.lupus.model.GameMode;
 import com.ggutim.lupus.model.NightAction;
 import com.ggutim.lupus.model.Player;
 import com.ggutim.lupus.model.Role;
@@ -19,8 +20,8 @@ import org.springframework.stereotype.Service;
 
 /**
  * Runs the night-turn state machine: which configured role acts next
- * (see {@link #NIGHT_ORDER}), whether a selection can be required of
- * it, and recording/validating a selection against its {@link
+ * (see {@link #nightOrder(Room)}), whether a selection can be required
+ * of it, and recording/validating a selection against its {@link
  * NightActionEffect}. A role with no living holder — or, for a
  * dead-target role like the gravedigger, no eligible target yet —
  * still gets its turn narrated, it just never requires a selection,
@@ -34,9 +35,19 @@ import org.springframework.stereotype.Service;
 @Service
 public class NightEngine {
 
-    /** Narration order for roles with a night action. Adding a role's night turn means appending here. */
-    private static final List<Role> NIGHT_ORDER =
+    /** Narration order for a classic-mode room. */
+    private static final List<Role> CLASSIC_NIGHT_ORDER =
             List.of(Role.WEREWOLF, Role.PRIEST, Role.GRAVEDIGGER, Role.CORRUPTED_JUDGE);
+
+    /**
+     * Narration order for an afterlife-mode room — a full reorder, not
+     * an insertion: the judge and gravedigger move ahead of the
+     * werewolves, and the priest moves to last so the ghosts' curse
+     * (cast earlier the same night) is already active by the time the
+     * priest inspects.
+     */
+    private static final List<Role> AFTERLIFE_NIGHT_ORDER =
+            List.of(Role.CORRUPTED_JUDGE, Role.GRAVEDIGGER, Role.GHOST, Role.ANGEL, Role.WEREWOLF, Role.PRIEST);
 
     private final NightActionRepository nightActionRepository;
     private final PlayerRepository playerRepository;
@@ -51,15 +62,19 @@ public class NightEngine {
 
     /**
      * The next configured, round-eligible role after {@code after} in
-     * {@link #NIGHT_ORDER}, or empty if none remain. "Round-eligible"
-     * is almost always true (see {@link NightActionEffect#isEligibleThisRound})
-     * — only the corrupted judge cares, gated on the previous day's vote.
+     * this room's night order (see {@link #nightOrder(Room)}), or
+     * empty if none remain. "Round-eligible" is almost always true
+     * (see {@link NightActionEffect#isEligibleThisRound}) — only the
+     * corrupted judge (gated on the previous day's vote) and, in
+     * afterlife mode, the ghosts and angels (gated on someone being
+     * dead) care.
      */
     public Optional<Role> nextRole(Room room, Role after) {
-        int startIndex = after == null ? 0 : NIGHT_ORDER.indexOf(after) + 1;
-        for (int i = startIndex; i < NIGHT_ORDER.size(); i++) {
-            Role candidate = NIGHT_ORDER.get(i);
-            if (room.getRoleCounts().getOrDefault(candidate, 0) <= 0) {
+        List<Role> order = nightOrder(room);
+        int startIndex = after == null ? 0 : order.indexOf(after) + 1;
+        for (int i = startIndex; i < order.size(); i++) {
+            Role candidate = order.get(i);
+            if (!isRoleConfigured(room, candidate)) {
                 continue;
             }
             NightActionEffect effect = effects.get(candidate);
@@ -70,12 +85,36 @@ public class NightEngine {
         return Optional.empty();
     }
 
+    private List<Role> nightOrder(Room room) {
+        return room.getGameMode() == GameMode.AFTERLIFE ? AFTERLIFE_NIGHT_ORDER : CLASSIC_NIGHT_ORDER;
+    }
+
+    /**
+     * Whether {@code role} is even part of this room's ruleset. Ghosts
+     * and angels are never a configured role count — unlike every
+     * other role, they exist automatically in any afterlife-mode room,
+     * contingent on someone having died (checked separately via {@link
+     * NightActionEffect#isEligibleThisRound}), not on a count the
+     * master picked at room creation.
+     */
+    private boolean isRoleConfigured(Room room, Role role) {
+        if (role == Role.GHOST || role == Role.ANGEL) {
+            return true;
+        }
+        return room.getRoleCounts().getOrDefault(role, 0) > 0;
+    }
+
     /**
      * Records the master's choice of target for {@code role}, applies
      * its immediate effect if it has one, and re-selecting simply
      * overwrites the previous choice.
      */
     public void recordSelection(Room room, Role role, Long targetId) {
+        if (role == Role.GHOST) {
+            recordGhostSelection(room, targetId);
+            return;
+        }
+
         Player target = requireEligibleTarget(room, role, targetId);
         NightActionEffect effect = effects.get(role);
         if (effect != null) {
@@ -90,6 +129,42 @@ public class NightEngine {
             effect.apply(target).ifPresent(action::setResultAlignment);
         }
         nightActionRepository.save(action);
+
+        if (role == Role.ANGEL && isCursedThisRound(room, target.getId())) {
+            target.setProtectionBlocked(true);
+            playerRepository.save(target);
+        }
+    }
+
+    /**
+     * Ghosts curse two players collectively, toggled one click at a
+     * time: an unselected player fills the first empty slot, clicking
+     * an already-selected player clears that slot (shifting the second
+     * into the first, if any), and a third distinct player is ignored
+     * once both slots are full — the master must deselect one first.
+     */
+    private void recordGhostSelection(Room room, Long targetId) {
+        Player target = requireEligibleTarget(room, Role.GHOST, targetId);
+        NightActionEffect effect = effects.get(Role.GHOST);
+        if (effect != null) {
+            effect.validateTarget(target);
+        }
+
+        NightAction action = findAction(room, Role.GHOST)
+                .orElseGet(() -> new NightAction(room, room.getRoundNumber(), Role.GHOST));
+
+        if (targetId.equals(action.getTargetPlayerId())) {
+            action.setTargetPlayerId(action.getSecondTargetPlayerId());
+            action.setSecondTargetPlayerId(null);
+        } else if (targetId.equals(action.getSecondTargetPlayerId())) {
+            action.setSecondTargetPlayerId(null);
+        } else if (action.getTargetPlayerId() == null) {
+            action.setTargetPlayerId(target.getId());
+        } else if (action.getSecondTargetPlayerId() == null) {
+            action.setSecondTargetPlayerId(target.getId());
+        }
+
+        nightActionRepository.save(action);
     }
 
     /**
@@ -102,11 +177,32 @@ public class NightEngine {
         if (!requiresSelection(role) || !roleHasSelectableHolder(room, role) || !roleHasEligibleTarget(room, role)) {
             return;
         }
+        if (role == Role.GHOST) {
+            requireGhostSelectionIfNeeded(room);
+            return;
+        }
         boolean hasTarget = findAction(room, role)
                 .map(NightAction::getTargetPlayerId)
                 .isPresent();
         if (!hasTarget) {
             throw new InvalidGamePhaseException("Select " + role + "'s target before advancing");
+        }
+    }
+
+    /**
+     * Ghosts must curse two players, unless fewer than two are even
+     * alive to choose from — in which case as many as are available is
+     * enough.
+     */
+    private void requireGhostSelectionIfNeeded(Room room) {
+        int aliveCount = playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId()).size();
+        int required = Math.min(2, aliveCount);
+        long selected = findAction(room, Role.GHOST)
+                .map(action -> (action.getTargetPlayerId() != null ? 1 : 0)
+                        + (action.getSecondTargetPlayerId() != null ? 1 : 0))
+                .orElse(0);
+        if (selected < required) {
+            throw new InvalidGamePhaseException("Select the ghosts' curse targets before advancing");
         }
     }
 
@@ -123,13 +219,16 @@ public class NightEngine {
      */
     public List<Long> resolveDeferredKillsAndClearState(Room room) {
         Set<Long> victimIds = new LinkedHashSet<>();
-        for (Role role : NIGHT_ORDER) {
+        for (Role role : nightOrder(room)) {
             NightActionEffect effect = effects.get(role);
             if (effect == null || !effect.isDeferredKill()) {
                 continue;
             }
             Long targetId = findAction(room, role).map(NightAction::getTargetPlayerId).orElse(null);
             if (targetId == null) {
+                continue;
+            }
+            if (role == Role.WEREWOLF && isProtectedThisRound(room, targetId)) {
                 continue;
             }
             Player target = playerRepository.findById(targetId)
@@ -159,7 +258,7 @@ public class NightEngine {
 
     private List<Long> deferredKillTargetsThisRound(Room room) {
         Set<Long> victimIds = new LinkedHashSet<>();
-        for (Role role : NIGHT_ORDER) {
+        for (Role role : nightOrder(room)) {
             NightActionEffect effect = effects.get(role);
             if (effect == null || !effect.isDeferredKill()) {
                 continue;
@@ -167,6 +266,34 @@ public class NightEngine {
             findAction(room, role).map(NightAction::getTargetPlayerId).ifPresent(victimIds::add);
         }
         return List.copyOf(victimIds);
+    }
+
+    /**
+     * Whether {@code playerId} is one of the ghosts' two curse targets
+     * this round — used to flip the priest's displayed inspect result
+     * (see {@code GameService}'s DTO assembly) and to burn an angel's
+     * future protection eligibility (see {@link #recordSelection}).
+     * The curse expires after one night for free, since it's read
+     * straight off this round's {@link NightAction} and never
+     * persisted anywhere durable.
+     */
+    public boolean isCursedThisRound(Room room, Long playerId) {
+        return findAction(room, Role.GHOST)
+                .map(action -> playerId.equals(action.getTargetPlayerId())
+                        || playerId.equals(action.getSecondTargetPlayerId()))
+                .orElse(false);
+    }
+
+    /**
+     * Whether {@code playerId} is the angels' protected target this
+     * round — checked only against the werewolves' kill (see {@link
+     * #resolveDeferredKillsAndClearState}); the corrupted judge's kill
+     * ignores it entirely.
+     */
+    private boolean isProtectedThisRound(Room room, Long playerId) {
+        return findAction(room, Role.ANGEL)
+                .map(action -> playerId.equals(action.getTargetPlayerId()))
+                .orElse(false);
     }
 
     public Optional<NightAction> findAction(Room room, Role role) {
@@ -217,13 +344,23 @@ public class NightEngine {
     }
 
     /**
-     * Whether {@code role} has a living player who could plausibly act
-     * tonight. A deferred kill (werewolves' or the corrupted judge's)
-     * only takes effect the following day — the target is still fully
-     * alive for the rest of tonight, including their own turn if they
-     * hold another acting role, so a pending target is not excluded here.
+     * Whether {@code role} has a holder who could plausibly act
+     * tonight. For every ordinary role that's a living player: a
+     * deferred kill (werewolves' or the corrupted judge's) only takes
+     * effect the following day — the target is still fully alive for
+     * the rest of tonight, including their own turn if they hold
+     * another acting role, so a pending target is not excluded here.
+     *
+     * <p>Ghosts and angels invert this: they only ever exist on a
+     * player whose {@code role} flipped precisely because they died —
+     * see {@code RoleAssigner#applyAfterlifeDeathTransition} — so their
+     * holder check looks among the dead, not the living.
      */
     private boolean roleHasSelectableHolder(Room room, Role role) {
+        if (role == Role.GHOST || role == Role.ANGEL) {
+            return playerRepository.findByRoomIdAndAliveFalseOrderByJoinedAtAsc(room.getId()).stream()
+                    .anyMatch(player -> player.getRole() == role);
+        }
         return playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId()).stream()
                 .anyMatch(player -> player.getRole() == role);
     }

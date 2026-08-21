@@ -79,6 +79,31 @@ export function VillagerIcon(props: IconProps) {
   )
 }
 
+export function GhostIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path
+        d="M16 26A16 16 0 0 1 48 26V44L43 50L38 44L32 50L26 44L21 50L16 44Z"
+        fill="currentColor"
+      />
+      <circle cx="26" cy="30" r="2.6" fill="#fff" />
+      <circle cx="38" cy="30" r="2.6" fill="#fff" />
+    </svg>
+  )
+}
+
+export function AngelIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <ellipse cx="32" cy="10" rx="8" ry="4" fill="none" stroke="currentColor" strokeWidth="3" />
+      <circle cx="32" cy="24" r="8" fill="currentColor" />
+      <path d="M14 30c8 2 12 8 12 8s-10 2-16-4c-2-2 0-5 4-4Z" fill="currentColor" />
+      <path d="M50 30c-8 2-12 8-12 8s10 2 16-4c2-2 0-5-4-4Z" fill="currentColor" />
+      <path d="M16 54c0-9 7-15 16-15s16 6 16 15v2H16v-2Z" fill="currentColor" />
+    </svg>
+  )
+}
+
 export function MeepleIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>

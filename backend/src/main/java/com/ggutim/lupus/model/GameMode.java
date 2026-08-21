@@ -2,9 +2,10 @@ package com.ggutim.lupus.model;
 
 /**
  * A game mode determines which rules and roles are available when
- * configuring a {@link Room}'s ruleset. Currently only {@link #CLASSIC} is
- * supported; more modes may be added in the future.
+ * configuring a {@link Room}'s ruleset.
  */
 public enum GameMode {
-    CLASSIC
+    CLASSIC,
+    /** Dead players keep playing as ghosts (evil) or angels (good) — see {@link Role#GHOST}/{@link Role#ANGEL}. */
+    AFTERLIFE
 }

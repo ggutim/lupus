@@ -12,7 +12,11 @@ public enum Role {
     IDIOT(Alignment.GOOD),
     CORRUPTED_JUDGE(Alignment.EVIL),
     /** A basic villager with one extra life — see {@link #getStartingExtraLives()}. */
-    SURVIVOR(Alignment.GOOD, 1);
+    SURVIVOR(Alignment.GOOD, 1),
+    /** Afterlife mode only — what a dead evil player becomes. Never assignable at room creation. */
+    GHOST(Alignment.EVIL),
+    /** Afterlife mode only — what a dead good player becomes. Never assignable at room creation. */
+    ANGEL(Alignment.GOOD);
 
     private final Alignment alignment;
     private final int startingExtraLives;

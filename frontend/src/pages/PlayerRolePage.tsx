@@ -7,7 +7,9 @@ import BoardPanel from '../components/BoardPanel'
 import VillageOverviewDialog from '../components/VillageOverviewDialog'
 import { useDialog } from '../components/useDialog'
 import {
+  AngelIcon,
   CorruptedJudgeIcon,
+  GhostIcon,
   GravediggerIcon,
   IdiotIcon,
   MeepleIcon,
@@ -48,6 +50,16 @@ const ROLE_INFO: Record<Role, { description: string; icon: ReactNode }> = {
   VILLAGER: {
     description: 'Non hai poteri speciali: osserva, discuti e vota con attenzione.',
     icon: <VillagerIcon />,
+  },
+  GHOST: {
+    description:
+      'Sei un fantasma: ogni notte, insieme agli altri fantasmi, scegliete in silenzio due giocatori da maledire.',
+    icon: <GhostIcon />,
+  },
+  ANGEL: {
+    description:
+      'Sei un angelo: ogni notte, insieme agli altri angeli, scegliete in silenzio un giocatore da proteggere dai lupi mannari.',
+    icon: <AngelIcon />,
   },
 }
 

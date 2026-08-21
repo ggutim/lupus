@@ -18,6 +18,10 @@ export interface MasterPlayerView {
   nickname: string
   alive: boolean
   role: Role
+  /** Afterlife mode only: what this player was before dying and becoming a ghost/angel. */
+  originalRole: Role | null
+  /** Afterlife mode only: permanently true once an angel has protected this player while cursed. */
+  protectionBlocked: boolean
 }
 
 export interface MasterGameState {
@@ -28,7 +32,11 @@ export interface MasterGameState {
   currentNightRole: Role | null
   currentNightStepKind: NightStepKind | null
   pendingNightActionTargetId: number | null
+  /** Afterlife mode only: the ghosts' second curse target, alongside pendingNightActionTargetId as the first. */
+  secondPendingNightActionTargetId: number | null
   nightActionResult: Alignment | null
+  /** Whether nightActionResult was flipped because the target is currently cursed by the ghosts. */
+  nightActionResultCursed: boolean
   lastNightVictimIds: number[]
   pendingVoteVictimId: number | null
   winner: Alignment | null

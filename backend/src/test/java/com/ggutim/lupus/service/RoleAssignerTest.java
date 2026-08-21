@@ -39,6 +39,10 @@ class RoleAssignerTest {
         return new Room("ABCD", "token", GameMode.CLASSIC, playerCount, roleCounts, true, false);
     }
 
+    private Room afterlifeRoom(int playerCount, Map<Role, Integer> roleCounts) {
+        return new Room("ABCD", "token", GameMode.AFTERLIFE, playerCount, roleCounts, true, false);
+    }
+
     private List<Player> players(Room room, int count) {
         return IntStream.range(0, count)
                 .mapToObj(i -> new Player(room, "P" + i, "token" + i))
@@ -80,5 +84,66 @@ class RoleAssignerTest {
         assertThat(survivor.getExtraLives()).isEqualTo(1);
         players.stream().filter(p -> p.getRole() != Role.SURVIVOR)
                 .forEach(p -> assertThat(p.getExtraLives()).isZero());
+    }
+
+    @Test
+    void applyAfterlifeDeathTransition_evilRoleBecomesGhost() {
+        Room room = afterlifeRoom(4, Map.of(Role.VILLAGER, 4));
+        Player player = new Player(room, "P1", "token1");
+        player.setRole(Role.WEREWOLF);
+
+        roleAssigner().applyAfterlifeDeathTransition(room, player);
+
+        assertThat(player.getRole()).isEqualTo(Role.GHOST);
+        assertThat(player.getOriginalRole()).isEqualTo(Role.WEREWOLF);
+        assertThat(player.getExtraLives()).isZero();
+    }
+
+    @Test
+    void applyAfterlifeDeathTransition_goodRoleBecomesAngel() {
+        Room room = afterlifeRoom(4, Map.of(Role.VILLAGER, 4));
+        Player player = new Player(room, "P1", "token1");
+        player.setRole(Role.PRIEST);
+
+        roleAssigner().applyAfterlifeDeathTransition(room, player);
+
+        assertThat(player.getRole()).isEqualTo(Role.ANGEL);
+        assertThat(player.getOriginalRole()).isEqualTo(Role.PRIEST);
+    }
+
+    @Test
+    void applyAfterlifeDeathTransition_excludesTheIdiot() {
+        Room room = afterlifeRoom(4, Map.of(Role.VILLAGER, 4));
+        Player player = new Player(room, "P1", "token1");
+        player.setRole(Role.IDIOT);
+
+        roleAssigner().applyAfterlifeDeathTransition(room, player);
+
+        assertThat(player.getRole()).isEqualTo(Role.IDIOT);
+        assertThat(player.getOriginalRole()).isNull();
+    }
+
+    @Test
+    void applyAfterlifeDeathTransition_noOpInClassicMode() {
+        Room room = room(4, Map.of(Role.VILLAGER, 4));
+        Player player = new Player(room, "P1", "token1");
+        player.setRole(Role.WEREWOLF);
+
+        roleAssigner().applyAfterlifeDeathTransition(room, player);
+
+        assertThat(player.getRole()).isEqualTo(Role.WEREWOLF);
+        assertThat(player.getOriginalRole()).isNull();
+    }
+
+    @Test
+    void applyAfterlifeDeathTransition_resetsExtraLivesToZero() {
+        Room room = afterlifeRoom(4, Map.of(Role.VILLAGER, 4));
+        Player survivor = new Player(room, "P1", "token1");
+        survivor.setRole(Role.SURVIVOR);
+        survivor.setExtraLives(1);
+
+        roleAssigner().applyAfterlifeDeathTransition(room, survivor);
+
+        assertThat(survivor.getExtraLives()).isZero();
     }
 }

@@ -19,7 +19,13 @@ import java.util.List;
  * {@code NIGHT_ACTIONS}; {@code pendingNightActionTargetId} and
  * {@code nightActionResult} are that role's selection and any
  * immediate result (e.g. the priest's alignment reveal) for the
- * current round.
+ * current round. {@code secondPendingNightActionTargetId} is used only
+ * by the ghosts' two-target curse in afterlife mode — every other role
+ * leaves it null. {@code nightActionResult} is already the value the
+ * master should relay at the table — see {@code GameService}'s
+ * assembly, which flips it (and sets {@code nightActionResultCursed})
+ * when the target is currently cursed; the true alignment never
+ * reaches this DTO in that case.
  */
 public record MasterGameStateResponse(
         String code,
@@ -29,7 +35,9 @@ public record MasterGameStateResponse(
         Role currentNightRole,
         NightStepKind currentNightStepKind,
         Long pendingNightActionTargetId,
+        Long secondPendingNightActionTargetId,
         Alignment nightActionResult,
+        boolean nightActionResultCursed,
         List<Long> lastNightVictimIds,
         Long pendingVoteVictimId,
         Alignment winner,
@@ -44,9 +52,15 @@ public record MasterGameStateResponse(
      * @param lastNightVictimIds every deferred-kill role's recorded target this
      *                           round (werewolves', and the corrupted judge's
      *                           when active) — empty when nobody died
+     * @param nightActionResult the alignment to actually show the master —
+     *                          already flipped by the caller if the target is
+     *                          currently cursed
+     * @param nightActionResultCursed whether that flip happened, so the master
+     *                                sees a note explaining the lie
      */
     public static MasterGameStateResponse from(Room room, List<MasterPlayerView> players,
-            NightAction currentAction, List<Long> lastNightVictimIds) {
+            NightAction currentAction, List<Long> lastNightVictimIds,
+            Alignment nightActionResult, boolean nightActionResultCursed) {
         return new MasterGameStateResponse(
                 room.getCode(),
                 room.getPhase(),
@@ -55,7 +69,9 @@ public record MasterGameStateResponse(
                 room.getCurrentNightRole(),
                 room.getCurrentNightStepKind(),
                 currentAction == null ? null : currentAction.getTargetPlayerId(),
-                currentAction == null ? null : currentAction.getResultAlignment(),
+                currentAction == null ? null : currentAction.getSecondTargetPlayerId(),
+                nightActionResult,
+                nightActionResultCursed,
                 lastNightVictimIds,
                 room.getPendingVoteVictimId(),
                 room.getWinner(),

@@ -9,6 +9,7 @@ import com.ggutim.lupus.exception.InvalidGamePhaseException;
 import com.ggutim.lupus.exception.PlayerNotFoundException;
 import com.ggutim.lupus.exception.RoomNotFoundException;
 import com.ggutim.lupus.model.Alignment;
+import com.ggutim.lupus.model.GameMode;
 import com.ggutim.lupus.model.GamePhase;
 import com.ggutim.lupus.model.NightAction;
 import com.ggutim.lupus.model.NightStepKind;
@@ -199,6 +200,9 @@ public class GameService {
      */
     private void resolveNightAndEnterMorningReveal(Room room) {
         List<Long> victimIds = nightEngine.resolveDeferredKillsAndClearState(room);
+        for (Long victimId : victimIds) {
+            applyAfterlifeTransition(room, victimId);
+        }
 
         if (resolveWinnerIfAny(room, new RoundEvent(RoundEvent.Cause.NIGHT_KILL, victimIds))) {
             return;
@@ -214,6 +218,7 @@ public class GameService {
                     .orElseThrow(() -> new PlayerNotFoundException(voteVictimId));
             voted.kill();
             playerRepository.save(voted);
+            applyAfterlifeTransition(room, voteVictimId);
         }
         room.setPendingVoteVictimId(null);
 
@@ -262,6 +267,23 @@ public class GameService {
         room.setPhase(GamePhase.GAME_OVER);
     }
 
+    /**
+     * Afterlife mode only: turns a just-died player into a ghost/angel
+     * (no-op in classic mode or for the idiot — see {@link
+     * RoleAssigner#applyAfterlifeDeathTransition}). Called from both
+     * places a player can die: the night's deferred-kill resolution and
+     * the day vote.
+     */
+    private void applyAfterlifeTransition(Room room, Long playerId) {
+        if (room.getGameMode() != GameMode.AFTERLIFE) {
+            return;
+        }
+        Player player = playerRepository.findById(playerId)
+                .orElseThrow(() -> new PlayerNotFoundException(playerId));
+        roleAssigner.applyAfterlifeDeathTransition(room, player);
+        playerRepository.save(player);
+    }
+
     private Player requireAlivePlayerInRoom(Room room, Long playerId) {
         Player player = playerRepository.findById(playerId)
                 .filter(p -> p.getRoom().getId().equals(room.getId()))
@@ -302,9 +324,27 @@ public class GameService {
         NightAction currentAction = room.getCurrentNightRole() == null ? null
                 : nightEngine.findAction(room, room.getCurrentNightRole()).orElse(null);
 
+        Alignment nightActionResult = currentAction == null ? null : currentAction.getResultAlignment();
+        boolean nightActionResultCursed = false;
+        if (currentAction != null && nightActionResult != null && currentAction.getTargetPlayerId() != null
+                && nightEngine.isCursedThisRound(room, currentAction.getTargetPlayerId())) {
+            nightActionResult = flip(nightActionResult);
+            nightActionResultCursed = true;
+        }
+
         List<Long> lastNightVictimIds = nightEngine.findLastNightVictims(room);
 
-        return MasterGameStateResponse.from(room, players, currentAction, lastNightVictimIds);
+        return MasterGameStateResponse.from(room, players, currentAction, lastNightVictimIds, nightActionResult,
+                nightActionResultCursed);
+    }
+
+    /**
+     * How a cursed player appears to the priest — the opposite of what
+     * their (now flipped-to-ghost/angel, but alignment-preserving) role
+     * actually is.
+     */
+    private Alignment flip(Alignment alignment) {
+        return alignment == Alignment.GOOD ? Alignment.EVIL : Alignment.GOOD;
     }
 
     private void broadcastGameUpdated(Room room) {

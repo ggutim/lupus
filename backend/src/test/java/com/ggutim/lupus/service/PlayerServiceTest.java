@@ -230,6 +230,28 @@ class PlayerServiceTest {
     }
 
     @Test
+    void addPlayerManually_manualRoom_rejectsGhostAsStartingRole() {
+        Room room = room(6, false, true);
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.countByRoomId(any())).thenReturn(0L);
+        when(playerRepository.existsByRoomIdAndNicknameIgnoreCase(any(), eq("ALICE"))).thenReturn(false);
+
+        assertThatThrownBy(() -> playerService().addPlayerManually("ABCD", MASTER_TOKEN, "Alice", Role.GHOST))
+                .isInstanceOf(InvalidRulesetException.class);
+    }
+
+    @Test
+    void addPlayerManually_manualRoom_rejectsAngelAsStartingRole() {
+        Room room = room(6, false, true);
+        when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
+        when(playerRepository.countByRoomId(any())).thenReturn(0L);
+        when(playerRepository.existsByRoomIdAndNicknameIgnoreCase(any(), eq("ALICE"))).thenReturn(false);
+
+        assertThatThrownBy(() -> playerService().addPlayerManually("ABCD", MASTER_TOKEN, "Alice", Role.ANGEL))
+                .isInstanceOf(InvalidRulesetException.class);
+    }
+
+    @Test
     void addPlayerManually_manualRoom_rejectsWhenRolePoolExhausted() {
         Room room = room(6, false, true);
         Player existingWerewolf = new Player(room, "BOB", "bob-token");

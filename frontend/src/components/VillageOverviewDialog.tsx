@@ -7,6 +7,8 @@ export interface VillageOverviewPlayer {
   nickname: string
   alive: boolean
   role?: Role
+  /** Afterlife mode only: what this player was before dying and becoming a ghost/angel. */
+  originalRole?: Role | null
 }
 
 interface VillageOverviewDialogProps {
@@ -46,7 +48,13 @@ function VillageOverviewDialog({ open, onClose, players }: VillageOverviewDialog
             >
               <span className="village-overview-name">{player.nickname}</span>
               <span className="village-overview-meta">
-                {player.role && <span className="village-overview-role">{ROLE_LABELS[player.role]}</span>}
+                {player.role && (
+                  <span className="village-overview-role">
+                    {player.originalRole
+                      ? `${ROLE_LABELS[player.originalRole]} → ${ROLE_LABELS[player.role]}`
+                      : ROLE_LABELS[player.role]}
+                  </span>
+                )}
                 <span className="village-overview-status">{player.alive ? 'Vivo' : 'Morto'}</span>
               </span>
             </li>

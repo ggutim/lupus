@@ -46,6 +46,13 @@ public class NightAction {
 
     private Long targetPlayerId;
 
+    /**
+     * Afterlife mode only: the ghosts' second curse target, alongside
+     * {@link #targetPlayerId} as the first — every other role only ever
+     * uses one target.
+     */
+    private Long secondTargetPlayerId;
+
     @Enumerated(EnumType.STRING)
     private Alignment resultAlignment;
 
@@ -81,6 +88,14 @@ public class NightAction {
 
     public void setTargetPlayerId(Long targetPlayerId) {
         this.targetPlayerId = targetPlayerId;
+    }
+
+    public Long getSecondTargetPlayerId() {
+        return secondTargetPlayerId;
+    }
+
+    public void setSecondTargetPlayerId(Long secondTargetPlayerId) {
+        this.secondTargetPlayerId = secondTargetPlayerId;
     }
 
     public Alignment getResultAlignment() {

@@ -1,6 +1,8 @@
 package com.ggutim.lupus.service;
 
 import com.ggutim.lupus.exception.InvalidRulesetException;
+import com.ggutim.lupus.model.Alignment;
+import com.ggutim.lupus.model.GameMode;
 import com.ggutim.lupus.model.Player;
 import com.ggutim.lupus.model.Role;
 import com.ggutim.lupus.model.Room;
@@ -66,5 +68,24 @@ public class RoleAssigner {
     void assignRole(Player player, Role role) {
         player.setRole(role);
         player.setExtraLives(role.getStartingExtraLives());
+    }
+
+    /**
+     * Afterlife mode only: when {@code player} has just died, flips
+     * their role to {@link Role#GHOST} (evil) or {@link Role#ANGEL}
+     * (good) so they keep playing, preserving what they were as {@link
+     * Player#getOriginalRole()} for display. The idiot is the one
+     * "neutral" role (see docs/board.md) and is excluded — a dead idiot
+     * stays a dead idiot, no afterlife role. No-op outside afterlife
+     * mode.
+     */
+    public void applyAfterlifeDeathTransition(Room room, Player player) {
+        if (room.getGameMode() != GameMode.AFTERLIFE || player.getRole() == Role.IDIOT) {
+            return;
+        }
+        Role original = player.getRole();
+        player.setOriginalRole(original);
+        player.setRole(original.getAlignment() == Alignment.GOOD ? Role.ANGEL : Role.GHOST);
+        player.setExtraLives(0);
     }
 }

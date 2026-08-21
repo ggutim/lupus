@@ -1,6 +1,15 @@
-export type GameMode = 'CLASSIC'
+export type GameMode = 'CLASSIC' | 'AFTERLIFE'
 
-export type Role = 'VILLAGER' | 'WEREWOLF' | 'PRIEST' | 'GRAVEDIGGER' | 'IDIOT' | 'CORRUPTED_JUDGE' | 'SURVIVOR'
+export type Role =
+  | 'VILLAGER'
+  | 'WEREWOLF'
+  | 'PRIEST'
+  | 'GRAVEDIGGER'
+  | 'IDIOT'
+  | 'CORRUPTED_JUDGE'
+  | 'SURVIVOR'
+  | 'GHOST'
+  | 'ANGEL'
 
 export type RoleCounts = Record<Role, number>
 

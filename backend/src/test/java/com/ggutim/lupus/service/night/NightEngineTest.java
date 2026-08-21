@@ -54,7 +54,8 @@ class NightEngineTest {
                         invocation.getArgument(0), invocation.getArgument(1), invocation.getArgument(2)))));
 
         List<NightActionEffect> effects = List.of(new WerewolfKillEffect(), new PriestInspectEffect(),
-                new GravediggerInspectEffect(), new CorruptedJudgeKillEffect());
+                new GravediggerInspectEffect(), new CorruptedJudgeKillEffect(),
+                new GhostCurseEffect(playerRepository), new AngelProtectEffect(playerRepository));
         return new NightEngine(nightActionRepository, playerRepository, effects);
     }
 
@@ -68,6 +69,15 @@ class NightEngineTest {
 
     private Room room(int werewolfCount, int priestCount, int gravediggerCount, int corruptedJudgeCount) {
         Room room = new Room(CODE, "token", GameMode.CLASSIC, 10, Map.of(
+                Role.WEREWOLF, werewolfCount, Role.PRIEST, priestCount,
+                Role.GRAVEDIGGER, gravediggerCount, Role.CORRUPTED_JUDGE, corruptedJudgeCount, Role.VILLAGER, 0),
+                true, false);
+        setId(room, nextId++);
+        return room;
+    }
+
+    private Room afterlifeRoom(int werewolfCount, int priestCount, int gravediggerCount, int corruptedJudgeCount) {
+        Room room = new Room(CODE, "token", GameMode.AFTERLIFE, 10, Map.of(
                 Role.WEREWOLF, werewolfCount, Role.PRIEST, priestCount,
                 Role.GRAVEDIGGER, gravediggerCount, Role.CORRUPTED_JUDGE, corruptedJudgeCount, Role.VILLAGER, 0),
                 true, false);
@@ -510,6 +520,248 @@ class NightEngineTest {
 
         assertThat(engine.findLastNightVictims(room)).containsExactly(victim.getId());
         assertThat(victim.isAlive()).isTrue();
+    }
+
+    // ---------- afterlife mode: night order ----------
+
+    @Test
+    void nextRole_afterlifeOrderIsJudgeThenGravediggerThenGhostThenAngelThenWerewolfThenPriest() {
+        Room room = afterlifeRoom(1, 1, 1, 1);
+        room.setNoOneVotedOutPreviousDay(true);
+        Player deadVillager = player(room, "DEAD", Role.VILLAGER, false);
+        mockPlayers(room, List.of(deadVillager));
+
+        NightEngine engine = nightEngine();
+        assertThat(engine.nextRole(room, null)).contains(Role.CORRUPTED_JUDGE);
+        assertThat(engine.nextRole(room, Role.CORRUPTED_JUDGE)).contains(Role.GRAVEDIGGER);
+        assertThat(engine.nextRole(room, Role.GRAVEDIGGER)).contains(Role.GHOST);
+        assertThat(engine.nextRole(room, Role.GHOST)).contains(Role.ANGEL);
+        assertThat(engine.nextRole(room, Role.ANGEL)).contains(Role.WEREWOLF);
+        assertThat(engine.nextRole(room, Role.WEREWOLF)).contains(Role.PRIEST);
+        assertThat(engine.nextRole(room, Role.PRIEST)).isEmpty();
+    }
+
+    @Test
+    void nextRole_skipsGhostAndAngelWhenNobodyDeadYet() {
+        Room room = afterlifeRoom(1, 1, 0, 0);
+        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
+        mockPlayers(room, List.of(wolf));
+
+        assertThat(nightEngine().nextRole(room, null)).contains(Role.WEREWOLF);
+    }
+
+    @Test
+    void nextRole_includesGhostAndAngelOnceSomeoneHasDied() {
+        Room room = afterlifeRoom(1, 1, 0, 0);
+        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
+        Player deadVillager = player(room, "DEAD", Role.VILLAGER, false);
+        mockPlayers(room, List.of(wolf, deadVillager));
+
+        NightEngine engine = nightEngine();
+        assertThat(engine.nextRole(room, null)).contains(Role.GHOST);
+        assertThat(engine.nextRole(room, Role.GHOST)).contains(Role.ANGEL);
+    }
+
+    // ---------- afterlife mode: ghost curse selection ----------
+
+    @Test
+    void recordSelection_ghostCurseFillsBothSlotsAcrossTwoClicks() {
+        Room room = afterlifeRoom(1, 1, 0, 0);
+        Player v1 = player(room, "V1", Role.VILLAGER, true);
+        Player v2 = player(room, "V2", Role.VILLAGER, true);
+        mockPlayers(room, List.of(v1, v2));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.GHOST, v1.getId());
+        engine.recordSelection(room, Role.GHOST, v2.getId());
+
+        NightAction action = engine.findAction(room, Role.GHOST).orElseThrow();
+        assertThat(action.getTargetPlayerId()).isEqualTo(v1.getId());
+        assertThat(action.getSecondTargetPlayerId()).isEqualTo(v2.getId());
+    }
+
+    @Test
+    void recordSelection_ghostCurseClearsSlotOnReclickAndShiftsSecondIntoFirst() {
+        Room room = afterlifeRoom(1, 1, 0, 0);
+        Player v1 = player(room, "V1", Role.VILLAGER, true);
+        Player v2 = player(room, "V2", Role.VILLAGER, true);
+        mockPlayers(room, List.of(v1, v2));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.GHOST, v1.getId());
+        engine.recordSelection(room, Role.GHOST, v2.getId());
+        engine.recordSelection(room, Role.GHOST, v1.getId());
+
+        NightAction action = engine.findAction(room, Role.GHOST).orElseThrow();
+        assertThat(action.getTargetPlayerId()).isEqualTo(v2.getId());
+        assertThat(action.getSecondTargetPlayerId()).isNull();
+    }
+
+    @Test
+    void recordSelection_ghostCurseIgnoresThirdDistinctPlayerWhenBothSlotsFull() {
+        Room room = afterlifeRoom(1, 1, 0, 0);
+        Player v1 = player(room, "V1", Role.VILLAGER, true);
+        Player v2 = player(room, "V2", Role.VILLAGER, true);
+        Player v3 = player(room, "V3", Role.VILLAGER, true);
+        mockPlayers(room, List.of(v1, v2, v3));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.GHOST, v1.getId());
+        engine.recordSelection(room, Role.GHOST, v2.getId());
+        engine.recordSelection(room, Role.GHOST, v3.getId());
+
+        NightAction action = engine.findAction(room, Role.GHOST).orElseThrow();
+        assertThat(action.getTargetPlayerId()).isEqualTo(v1.getId());
+        assertThat(action.getSecondTargetPlayerId()).isEqualTo(v2.getId());
+    }
+
+    @Test
+    void requireSelectionIfNeeded_throwsWhenOnlyOneGhostCurseTargetSelected() {
+        Room room = afterlifeRoom(1, 0, 0, 0);
+        Player deadGhost = player(room, "GHOST1", Role.GHOST, false);
+        Player v1 = player(room, "V1", Role.VILLAGER, true);
+        Player v2 = player(room, "V2", Role.VILLAGER, true);
+        mockPlayers(room, List.of(deadGhost, v1, v2));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.GHOST, v1.getId());
+
+        assertThatThrownBy(() -> engine.requireSelectionIfNeeded(room, Role.GHOST))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void requireSelectionIfNeeded_doesNotThrowWhenBothGhostCurseTargetsSelected() {
+        Room room = afterlifeRoom(1, 0, 0, 0);
+        Player deadGhost = player(room, "GHOST1", Role.GHOST, false);
+        Player v1 = player(room, "V1", Role.VILLAGER, true);
+        Player v2 = player(room, "V2", Role.VILLAGER, true);
+        mockPlayers(room, List.of(deadGhost, v1, v2));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.GHOST, v1.getId());
+        engine.recordSelection(room, Role.GHOST, v2.getId());
+
+        engine.requireSelectionIfNeeded(room, Role.GHOST);
+    }
+
+    @Test
+    void requireSelectionIfNeeded_ghostCurseSatisfiedWithOneTargetWhenOnlyOneAlivePlayerExists() {
+        Room room = afterlifeRoom(1, 0, 0, 0);
+        Player deadGhost = player(room, "GHOST1", Role.GHOST, false);
+        Player v1 = player(room, "V1", Role.VILLAGER, true);
+        mockPlayers(room, List.of(deadGhost, v1));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.GHOST, v1.getId());
+
+        engine.requireSelectionIfNeeded(room, Role.GHOST);
+    }
+
+    // ---------- afterlife mode: curse flip / expiry ----------
+
+    @Test
+    void isCursedThisRound_trueForBothGhostCurseTargetsOnly() {
+        Room room = afterlifeRoom(0, 0, 0, 0);
+        Player v1 = player(room, "V1", Role.VILLAGER, true);
+        Player v2 = player(room, "V2", Role.VILLAGER, true);
+        Player v3 = player(room, "V3", Role.VILLAGER, true);
+        mockPlayers(room, List.of(v1, v2, v3));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.GHOST, v1.getId());
+        engine.recordSelection(room, Role.GHOST, v2.getId());
+
+        assertThat(engine.isCursedThisRound(room, v1.getId())).isTrue();
+        assertThat(engine.isCursedThisRound(room, v2.getId())).isTrue();
+        assertThat(engine.isCursedThisRound(room, v3.getId())).isFalse();
+    }
+
+    @Test
+    void isCursedThisRound_falseTheFollowingRound() {
+        Room room = afterlifeRoom(0, 0, 0, 0);
+        Player v1 = player(room, "V1", Role.VILLAGER, true);
+        mockPlayers(room, List.of(v1));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.GHOST, v1.getId());
+        room.setRoundNumber(room.getRoundNumber() + 1);
+
+        assertThat(engine.isCursedThisRound(room, v1.getId())).isFalse();
+    }
+
+    // ---------- afterlife mode: angel protection ----------
+
+    @Test
+    void resolveDeferredKillsAndClearState_protectedTargetSurvivesWerewolfKill() {
+        Room room = afterlifeRoom(1, 0, 0, 0);
+        Player victim = player(room, "V1", Role.VILLAGER, true);
+        mockPlayers(room, List.of(victim));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.ANGEL, victim.getId());
+        engine.recordSelection(room, Role.WEREWOLF, victim.getId());
+        List<Long> victimIds = engine.resolveDeferredKillsAndClearState(room);
+
+        assertThat(victim.isAlive()).isTrue();
+        assertThat(victimIds).isEmpty();
+    }
+
+    @Test
+    void resolveDeferredKillsAndClearState_corruptedJudgeStillKillsAProtectedTarget() {
+        Room room = afterlifeRoom(0, 0, 0, 1);
+        Player victim = player(room, "V1", Role.VILLAGER, true);
+        mockPlayers(room, List.of(victim));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.ANGEL, victim.getId());
+        engine.recordSelection(room, Role.CORRUPTED_JUDGE, victim.getId());
+        List<Long> victimIds = engine.resolveDeferredKillsAndClearState(room);
+
+        assertThat(victim.isAlive()).isFalse();
+        assertThat(victimIds).containsExactly(victim.getId());
+    }
+
+    @Test
+    void recordSelection_angelProtectionCanBeReusedOnTheSamePlayerAcrossRounds() {
+        Room room = afterlifeRoom(0, 0, 0, 0);
+        Player v1 = player(room, "V1", Role.VILLAGER, true);
+        mockPlayers(room, List.of(v1));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.ANGEL, v1.getId());
+        room.setRoundNumber(room.getRoundNumber() + 1);
+        engine.recordSelection(room, Role.ANGEL, v1.getId());
+
+        assertThat(engine.findAction(room, Role.ANGEL))
+                .get().extracting(NightAction::getTargetPlayerId).isEqualTo(v1.getId());
+        assertThat(v1.isProtectionBlocked()).isFalse();
+    }
+
+    @Test
+    void recordSelection_protectingACursedPlayerBurnsTheirProtectionEligibilityForever() {
+        Room room = afterlifeRoom(0, 0, 0, 0);
+        Player v1 = player(room, "V1", Role.VILLAGER, true);
+        Player v2 = player(room, "V2", Role.VILLAGER, true);
+        mockPlayers(room, List.of(v1, v2));
+
+        NightEngine engine = nightEngine();
+        engine.recordSelection(room, Role.GHOST, v1.getId());
+        engine.recordSelection(room, Role.GHOST, v2.getId());
+        engine.recordSelection(room, Role.ANGEL, v1.getId());
+
+        assertThat(v1.isProtectionBlocked()).isTrue();
+    }
+
+    @Test
+    void recordSelection_rejectsProtectingAPlayerWhoseProtectionWasPreviouslyBurned() {
+        Room room = afterlifeRoom(0, 0, 0, 0);
+        Player v1 = player(room, "V1", Role.VILLAGER, true);
+        v1.setProtectionBlocked(true);
+        mockPlayers(room, List.of(v1));
+
+        assertThatThrownBy(() -> nightEngine().recordSelection(room, Role.ANGEL, v1.getId()))
+                .isInstanceOf(InvalidGamePhaseException.class);
     }
 
     // ---------- findAction ----------

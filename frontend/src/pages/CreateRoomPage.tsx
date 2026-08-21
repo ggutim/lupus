@@ -103,6 +103,15 @@ function CreateRoomPage() {
               />
               Classica
             </label>
+            <label className="option">
+              <input
+                type="radio"
+                name="gameMode"
+                checked={gameMode === 'AFTERLIFE'}
+                onChange={() => setGameMode('AFTERLIFE')}
+              />
+              Aldilà — i giocatori morti continuano a giocare, come fantasmi o angeli
+            </label>
           </div>
           <div className="wizard-actions">
             <Link to="/" className="button">

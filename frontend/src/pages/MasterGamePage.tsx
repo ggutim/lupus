@@ -18,8 +18,10 @@ import { useMasterAccess } from '../components/useMasterAccess'
 import { ROLE_ALIGNMENT, type RoleAlignment } from '../roleAlignment'
 import { ROLE_LABELS } from '../roleLabels'
 import {
+  AngelIcon,
   CorruptedJudgeIcon,
   EyeIcon,
+  GhostIcon,
   GravediggerIcon,
   MoonIcon,
   PriestIcon,
@@ -44,7 +46,7 @@ interface NightRoleContent {
   selectTitle: string
   selectPrompt: string
   /** Renders the immediate result once a target and result exist (e.g. the priest's alignment reveal). */
-  renderResult?: (targetName: string, result: Alignment) => ReactNode
+  renderResult?: (targetName: string, result: Alignment, cursed: boolean) => ReactNode
 }
 
 /** Narration copy per role's night turn. Adding a role's night behavior means adding an entry here. */
@@ -62,11 +64,17 @@ const NIGHT_ROLE_CONTENT: Partial<Record<Role, NightRoleContent>> = {
     wakeUpBody: 'Il sacerdote apre gli occhi e sceglie chi vedere.',
     selectTitle: 'Chi vuole vedere il sacerdote?',
     selectPrompt: 'Seleziona dalla tavola il giocatore scelto dal sacerdote.',
-    renderResult: (targetName, result) => (
+    renderResult: (targetName, result, cursed) => (
       <>
         <p>
           {targetName} è <strong>{result === 'EVIL' ? 'malvagio' : 'buono'}</strong>.
         </p>
+        {cursed && (
+          <p className="game-card-hint">
+            ⚠️ {targetName} è maledetto dai fantasmi questa notte: quello che vede il sacerdote è il suo
+            allineamento invertito, non quello reale.
+          </p>
+        )}
         <p className="game-card-hint">Comunicalo in silenzio al sacerdote.</p>
       </>
     ),
@@ -93,6 +101,20 @@ const NIGHT_ROLE_CONTENT: Partial<Record<Role, NightRoleContent>> = {
     selectTitle: 'Chi ha scelto il giudice corrotto?',
     selectPrompt: 'Seleziona dalla tavola il giocatore scelto, oppure avanza se non vuole scegliere.',
   },
+  GHOST: {
+    icon: <GhostIcon />,
+    wakeUpTitle: 'I fantasmi si svegliano',
+    wakeUpBody: 'I giocatori diventati fantasmi aprono gli occhi e decidono in silenzio chi maledire stanotte.',
+    selectTitle: 'Chi hanno maledetto i fantasmi?',
+    selectPrompt: 'Seleziona dalla tavola i due giocatori scelti dai fantasmi.',
+  },
+  ANGEL: {
+    icon: <AngelIcon />,
+    wakeUpTitle: 'Gli angeli si svegliano',
+    wakeUpBody: 'I giocatori diventati angeli aprono gli occhi e decidono in silenzio chi proteggere stanotte.',
+    selectTitle: 'Chi hanno scelto di proteggere gli angeli?',
+    selectPrompt: 'Seleziona dalla tavola il giocatore scelto dagli angeli.',
+  },
 }
 
 function playerName(players: MasterPlayerView[], id: number | null): string {
@@ -101,7 +123,15 @@ function playerName(players: MasterPlayerView[], id: number | null): string {
 }
 
 function buildNightActionsCard(state: MasterGameState): CardContent {
-  const { players, currentNightRole, currentNightStepKind, pendingNightActionTargetId, nightActionResult } = state
+  const {
+    players,
+    currentNightRole,
+    currentNightStepKind,
+    pendingNightActionTargetId,
+    secondPendingNightActionTargetId,
+    nightActionResult,
+    nightActionResultCursed,
+  } = state
   const content = currentNightRole ? NIGHT_ROLE_CONTENT[currentNightRole] : undefined
 
   if (!currentNightRole || !content) {
@@ -115,22 +145,33 @@ function buildNightActionsCard(state: MasterGameState): CardContent {
   }
 
   if (!roleHasSelectableHolder(state, currentNightRole)) {
+    const isAfterlifeRole = currentNightRole === 'GHOST' || currentNightRole === 'ANGEL'
     return {
       icon: content.icon,
       title: content.selectTitle,
       align,
       body: (
         <p className="game-card-hint">
-          Non c'è più nessun {ROLE_LABELS[currentNightRole].toLowerCase()} in vita: il potere non può essere usato
-          questa notte.
+          {isAfterlifeRole
+            ? `Nessun giocatore è ancora diventato ${ROLE_LABELS[currentNightRole].toLowerCase()}: il potere non può essere usato questa notte.`
+            : `Non c'è più nessun ${ROLE_LABELS[currentNightRole].toLowerCase()} in vita: il potere non può essere usato questa notte.`}
         </p>
       ),
     }
   }
 
+  if (currentNightRole === 'GHOST') {
+    const cursedSoFar = [pendingNightActionTargetId, secondPendingNightActionTargetId]
+      .filter((id): id is number => id !== null)
+      .map((id) => playerName(players, id))
+    const body =
+      cursedSoFar.length > 0 ? `Maledetti finora: ${cursedSoFar.join(', ')}. ${content.selectPrompt}` : content.selectPrompt
+    return { icon: content.icon, title: content.selectTitle, body, align }
+  }
+
   const body =
     pendingNightActionTargetId && nightActionResult && content.renderResult
-      ? content.renderResult(playerName(players, pendingNightActionTargetId), nightActionResult)
+      ? content.renderResult(playerName(players, pendingNightActionTargetId), nightActionResult, nightActionResultCursed)
       : content.selectPrompt
 
   return { icon: content.icon, title: content.selectTitle, body, align }
@@ -203,12 +244,17 @@ function buildCard(state: MasterGameState): CardContent {
 }
 
 /**
- * Whether a living player still holds {@code role}. A deferred kill
- * (werewolves' or the corrupted judge's) only takes effect the following
- * day, so a pending target is still fully able to act on their own turn
- * tonight — mirrors the backend's roleHasSelectableHolder.
+ * Whether {@code role} has a holder who could plausibly act tonight. For
+ * every ordinary role that's a living player: a deferred kill (werewolves'
+ * or the corrupted judge's) only takes effect the following day, so a
+ * pending target is still fully able to act on their own turn tonight.
+ * Ghosts and angels invert this — they only ever exist on a player who
+ * just died — mirrors the backend's roleHasSelectableHolder.
  */
 function roleHasSelectableHolder(state: MasterGameState, role: Role): boolean {
+  if (role === 'GHOST' || role === 'ANGEL') {
+    return state.players.some((player) => !player.alive && player.role === role)
+  }
   return state.players.some((player) => player.alive && player.role === role)
 }
 
@@ -240,6 +286,9 @@ function selectablePlayers(state: MasterGameState): MasterPlayerView[] {
   const alive = state.players.filter((player) => player.alive)
   if (state.phase === 'NIGHT_ACTIONS' && state.currentNightRole === 'WEREWOLF') {
     return alive.filter((player) => player.role !== 'WEREWOLF')
+  }
+  if (state.phase === 'NIGHT_ACTIONS' && state.currentNightRole === 'ANGEL') {
+    return alive.filter((player) => !player.protectionBlocked)
   }
   return alive
 }
@@ -286,12 +335,24 @@ function MasterGamePage() {
   const nightSelectionRequired =
     canSelectTonight && state.currentNightRole !== null && roleRequiresSelection(state.currentNightRole)
   const showSelectionGrid = canSelectTonight || isVotePhase
+  const isGhostCurseTurn = isNightSelectStep && state.currentNightRole === 'GHOST'
   const selectedId = isNightSelectStep
     ? state.pendingNightActionTargetId
     : isVotePhase
       ? state.pendingVoteVictimId
       : null
-  const canAdvance = isVotePhase || !nightSelectionRequired || selectedId !== null
+  const selectedIds = isGhostCurseTurn
+    ? [state.pendingNightActionTargetId, state.secondPendingNightActionTargetId].filter(
+        (id): id is number => id !== null,
+      )
+    : selectedId !== null
+      ? [selectedId]
+      : []
+  const ghostCurseRequired = isGhostCurseTurn ? Math.min(2, selectablePlayers(state).length) : 0
+  const canAdvance =
+    isVotePhase ||
+    !nightSelectionRequired ||
+    (isGhostCurseTurn ? selectedIds.length >= ghostCurseRequired : selectedId !== null)
 
   const handleSelect = async (playerId: number) => {
     if (!code || !masterToken || busy) return
@@ -337,6 +398,7 @@ function MasterGamePage() {
           nickname: player.nickname,
           alive: player.alive,
           role: player.role,
+          originalRole: player.originalRole,
         }))}
       />
 
@@ -348,17 +410,21 @@ function MasterGamePage() {
 
       {showSelectionGrid && (
         <div className="player-tokens game-selection-grid">
-          {selectablePlayers(state).map((player) => (
-            <button
-              key={player.id}
-              type="button"
-              className={'game-selectable-token' + (selectedId === player.id ? ' is-selected' : '')}
-              onClick={() => handleSelect(player.id)}
-              disabled={busy}
-            >
-              <span className="player-token-name">{player.nickname}</span>
-            </button>
-          ))}
+          {selectablePlayers(state).map((player) => {
+            const isSelected = selectedIds.includes(player.id)
+            const ghostSlotsFull = isGhostCurseTurn && selectedIds.length >= 2
+            return (
+              <button
+                key={player.id}
+                type="button"
+                className={'game-selectable-token' + (isSelected ? ' is-selected' : '')}
+                onClick={() => handleSelect(player.id)}
+                disabled={busy || (ghostSlotsFull && !isSelected)}
+              >
+                <span className="player-token-name">{player.nickname}</span>
+              </button>
+            )
+          })}
         </div>
       )}
 

@@ -113,6 +113,10 @@ public class PlayerService {
             if (role == null) {
                 throw new InvalidRulesetException("A role is required when assigning roles manually");
             }
+            if (role == Role.GHOST || role == Role.ANGEL) {
+                throw new InvalidRulesetException(
+                        "Ghost and angel are afterlife-mode roles a dead player becomes, not a starting role");
+            }
             long assignedForRole = playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId()).stream()
                     .filter(p -> p.getRole() == role)
                     .count();

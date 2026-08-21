@@ -38,8 +38,27 @@ public class Player {
     @Enumerated(EnumType.STRING)
     private Role role;
 
+    /**
+     * What {@link #role} was before an afterlife-mode death transition
+     * (see {@code RoleAssigner#applyAfterlifeDeathTransition}) overwrote
+     * it with {@link Role#GHOST}/{@link Role#ANGEL}. Display-only — no
+     * game logic reads this, {@link #role} remains the single source of
+     * truth for everything else. Null outside afterlife mode.
+     */
+    @Enumerated(EnumType.STRING)
+    private Role originalRole;
+
     @Column(nullable = false)
     private boolean alive = true;
+
+    /**
+     * Afterlife mode only: permanently true once an angel has protected
+     * this player while they were cursed — the one case where protection
+     * eligibility is burned for good, rather than reusable night after
+     * night. See {@code AngelProtectEffect}.
+     */
+    @Column(nullable = false)
+    private boolean protectionBlocked = false;
 
     /**
      * Extra lives beyond the usual single life, e.g. the survivor's
@@ -94,12 +113,28 @@ public class Player {
         this.role = role;
     }
 
+    public Role getOriginalRole() {
+        return originalRole;
+    }
+
+    public void setOriginalRole(Role originalRole) {
+        this.originalRole = originalRole;
+    }
+
     public boolean isAlive() {
         return alive;
     }
 
     public void kill() {
         this.alive = false;
+    }
+
+    public boolean isProtectionBlocked() {
+        return protectionBlocked;
+    }
+
+    public void setProtectionBlocked(boolean protectionBlocked) {
+        this.protectionBlocked = protectionBlocked;
     }
 
     public int getExtraLives() {
