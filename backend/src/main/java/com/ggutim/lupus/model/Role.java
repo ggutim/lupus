@@ -13,6 +13,7 @@ public enum Role {
     CORRUPTED_JUDGE(Alignment.EVIL),
     /** A basic villager with one extra life — see {@link #getStartingExtraLives()}. */
     SURVIVOR(Alignment.GOOD, 1),
+    GUARDIAN(Alignment.GOOD),
     /** Afterlife mode only — what a dead evil player becomes. Never assignable at room creation. */
     GHOST(Alignment.EVIL),
     /** Afterlife mode only — what a dead good player becomes. Never assignable at room creation. */

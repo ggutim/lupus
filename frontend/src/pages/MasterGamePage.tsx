@@ -23,6 +23,7 @@ import {
   EyeIcon,
   GhostIcon,
   GravediggerIcon,
+  GuardianIcon,
   MoonIcon,
   PriestIcon,
   SkullIcon,
@@ -114,6 +115,13 @@ const NIGHT_ROLE_CONTENT: Partial<Record<Role, NightRoleContent>> = {
     wakeUpBody: 'I giocatori diventati angeli aprono gli occhi e decidono in silenzio chi proteggere stanotte.',
     selectTitle: 'Chi hanno scelto di proteggere gli angeli?',
     selectPrompt: 'Seleziona dalla tavola il giocatore scelto dagli angeli.',
+  },
+  GUARDIAN: {
+    icon: <GuardianIcon />,
+    wakeUpTitle: 'Il guardiano si sveglia',
+    wakeUpBody: 'Il guardiano apre gli occhi e sceglie chi proteggere questa notte, anche se stesso.',
+    selectTitle: 'Chi ha scelto di proteggere il guardiano?',
+    selectPrompt: 'Seleziona dalla tavola il giocatore scelto dal guardiano.',
   },
 }
 
@@ -289,6 +297,9 @@ function selectablePlayers(state: MasterGameState): MasterPlayerView[] {
   }
   if (state.phase === 'NIGHT_ACTIONS' && state.currentNightRole === 'ANGEL') {
     return alive.filter((player) => !player.protectionBlocked)
+  }
+  if (state.phase === 'NIGHT_ACTIONS' && state.currentNightRole === 'GUARDIAN') {
+    return alive.filter((player) => player.id !== state.guardianBlockedPlayerId)
   }
   return alive
 }

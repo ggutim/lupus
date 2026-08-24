@@ -104,6 +104,21 @@ export function AngelIcon(props: IconProps) {
   )
 }
 
+export function GuardianIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path d="M32 6 50 13v14c0 14-8 23-18 29-10-6-18-15-18-29V13Z" fill="currentColor" />
+      <path
+        d="M32 20 41 24v9c0 8-5 13-9 16-4-3-9-8-9-16v-9Z"
+        stroke="#fff"
+        strokeWidth="2.4"
+        strokeLinejoin="round"
+        fill="none"
+      />
+    </svg>
+  )
+}
+
 export function MeepleIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>

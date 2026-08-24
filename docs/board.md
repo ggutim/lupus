@@ -22,3 +22,4 @@
 | 18 | New neutral role: "doppleganger"                                                                            | BACKLOG |
 | 19 | Bug. As is, if a role gets eliminated, is not called during the night                                       | DONE    |
 | 20 | Better icons for roles, now are nice but a little bit messy                                                 | BACKLOG |
+| 21 | New good role: "guardian"                                                                                   | DONE    |

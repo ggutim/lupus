@@ -34,7 +34,8 @@ class GameControllerTest {
 
     private MasterGameStateResponse state(GamePhase phase) {
         return new MasterGameStateResponse(
-                "ABCD", phase, 1, List.of(), null, null, null, null, null, false, null, null, null, null, true);
+                "ABCD", phase, 1, List.of(), null, null, null, null, null, false, null, null, null, null, null,
+                true);
     }
 
     @Test

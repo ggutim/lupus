@@ -25,7 +25,9 @@ import java.util.List;
  * master should relay at the table — see {@code GameService}'s
  * assembly, which flips it (and sets {@code nightActionResultCursed})
  * when the target is currently cursed; the true alignment never
- * reaches this DTO in that case.
+ * reaches this DTO in that case. {@code guardianBlockedPlayerId} is
+ * set only during the guardian's turn — the player they protected last
+ * round, who can't be selected again this round.
  */
 public record MasterGameStateResponse(
         String code,
@@ -38,6 +40,7 @@ public record MasterGameStateResponse(
         Long secondPendingNightActionTargetId,
         Alignment nightActionResult,
         boolean nightActionResultCursed,
+        Long guardianBlockedPlayerId,
         List<Long> lastNightVictimIds,
         Long pendingVoteVictimId,
         Alignment winner,
@@ -57,10 +60,12 @@ public record MasterGameStateResponse(
      *                          currently cursed
      * @param nightActionResultCursed whether that flip happened, so the master
      *                                sees a note explaining the lie
+     * @param guardianBlockedPlayerId the player the guardian can't select this
+     *                                round, or null when it isn't the guardian's turn
      */
     public static MasterGameStateResponse from(Room room, List<MasterPlayerView> players,
             NightAction currentAction, List<Long> lastNightVictimIds,
-            Alignment nightActionResult, boolean nightActionResultCursed) {
+            Alignment nightActionResult, boolean nightActionResultCursed, Long guardianBlockedPlayerId) {
         return new MasterGameStateResponse(
                 room.getCode(),
                 room.getPhase(),
@@ -72,6 +77,7 @@ public record MasterGameStateResponse(
                 currentAction == null ? null : currentAction.getSecondTargetPlayerId(),
                 nightActionResult,
                 nightActionResultCursed,
+                guardianBlockedPlayerId,
                 lastNightVictimIds,
                 room.getPendingVoteVictimId(),
                 room.getWinner(),

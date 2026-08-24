@@ -37,6 +37,8 @@ export interface MasterGameState {
   nightActionResult: Alignment | null
   /** Whether nightActionResult was flipped because the target is currently cursed by the ghosts. */
   nightActionResultCursed: boolean
+  /** Guardian's turn only: the player they protected last round, who can't be selected again this round. */
+  guardianBlockedPlayerId: number | null
   lastNightVictimIds: number[]
   pendingVoteVictimId: number | null
   winner: Alignment | null

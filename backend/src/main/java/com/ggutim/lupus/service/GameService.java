@@ -334,8 +334,12 @@ public class GameService {
 
         List<Long> lastNightVictimIds = nightEngine.findLastNightVictims(room);
 
+        Long guardianBlockedPlayerId = room.getCurrentNightRole() == Role.GUARDIAN
+                ? nightEngine.previousRoundGuardianTarget(room)
+                : null;
+
         return MasterGameStateResponse.from(room, players, currentAction, lastNightVictimIds, nightActionResult,
-                nightActionResultCursed);
+                nightActionResultCursed, guardianBlockedPlayerId);
     }
 
     /**

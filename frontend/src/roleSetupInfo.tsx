@@ -3,6 +3,7 @@ import type { Role } from './api/rooms'
 import {
   CorruptedJudgeIcon,
   GravediggerIcon,
+  GuardianIcon,
   IdiotIcon,
   PriestIcon,
   SurvivorIcon,
@@ -55,5 +56,10 @@ export const ROLE_SETUP_INFO: Record<AssignableRole, { icon: ReactNode; descript
     icon: <VillagerIcon />,
     description:
       'Nessun potere speciale: osserva, discute e vota. È il ruolo di riempimento — ogni giocatore senza un ruolo speciale assegnato diventa un contadino.',
+  },
+  GUARDIAN: {
+    icon: <GuardianIcon />,
+    description:
+      'Ogni notte, il guardiano protegge un giocatore vivo (anche se stesso): quella notte non può essere ucciso dai lupi mannari, ma resta vulnerabile al giudice corrotto. Non può proteggere lo stesso giocatore due notti di fila.',
   },
 }

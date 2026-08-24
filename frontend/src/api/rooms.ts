@@ -10,6 +10,7 @@ export type Role =
   | 'SURVIVOR'
   | 'GHOST'
   | 'ANGEL'
+  | 'GUARDIAN'
 
 export type RoleCounts = Record<Role, number>
 
@@ -24,6 +25,7 @@ export interface CreateRoomRequest {
   idiotCount: number
   corruptedJudgeCount: number
   survivorCount: number
+  guardianCount: number
   remoteJoin: boolean
   manualRoles: boolean
 }

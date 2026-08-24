@@ -11,6 +11,7 @@ import {
   CorruptedJudgeIcon,
   GhostIcon,
   GravediggerIcon,
+  GuardianIcon,
   IdiotIcon,
   MeepleIcon,
   PriestIcon,
@@ -60,6 +61,11 @@ const ROLE_INFO: Record<Role, { description: string; icon: ReactNode }> = {
     description:
       'Sei un angelo: ogni notte, insieme agli altri angeli, scegliete in silenzio un giocatore da proteggere dai lupi mannari.',
     icon: <AngelIcon />,
+  },
+  GUARDIAN: {
+    description:
+      'Ogni notte scegli un giocatore vivo (anche te stesso) da proteggere dai lupi mannari. Non puoi proteggere lo stesso giocatore due notti di fila.',
+    icon: <GuardianIcon />,
   },
 }
 

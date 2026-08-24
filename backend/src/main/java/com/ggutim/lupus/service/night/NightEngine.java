@@ -35,19 +35,26 @@ import org.springframework.stereotype.Service;
 @Service
 public class NightEngine {
 
-    /** Narration order for a classic-mode room. */
+    /**
+     * Narration order for a classic-mode room — the same skeleton as
+     * {@link #AFTERLIFE_NIGHT_ORDER} with the afterlife-only ghost and
+     * angel turns removed, so the two modes stay in sync by
+     * construction rather than as two hand-maintained lists.
+     */
     private static final List<Role> CLASSIC_NIGHT_ORDER =
-            List.of(Role.WEREWOLF, Role.PRIEST, Role.GRAVEDIGGER, Role.CORRUPTED_JUDGE);
+            List.of(Role.CORRUPTED_JUDGE, Role.GRAVEDIGGER, Role.WEREWOLF, Role.GUARDIAN, Role.PRIEST);
 
     /**
-     * Narration order for an afterlife-mode room — a full reorder, not
-     * an insertion: the judge and gravedigger move ahead of the
-     * werewolves, and the priest moves to last so the ghosts' curse
-     * (cast earlier the same night) is already active by the time the
-     * priest inspects.
+     * Narration order for an afterlife-mode room: the judge goes
+     * first, ahead of everyone (if called at all), then the
+     * gravedigger, then the ghosts' curse and the angels' protection
+     * (both need at least one death to have anyone to wake), then the
+     * werewolves, with the priest moving to last so the ghosts' curse
+     * is already active by the time the priest inspects.
      */
     private static final List<Role> AFTERLIFE_NIGHT_ORDER =
-            List.of(Role.CORRUPTED_JUDGE, Role.GRAVEDIGGER, Role.GHOST, Role.ANGEL, Role.WEREWOLF, Role.PRIEST);
+            List.of(Role.CORRUPTED_JUDGE, Role.GRAVEDIGGER, Role.GHOST, Role.ANGEL, Role.WEREWOLF, Role.GUARDIAN,
+                    Role.PRIEST);
 
     private final NightActionRepository nightActionRepository;
     private final PlayerRepository playerRepository;
@@ -116,6 +123,9 @@ public class NightEngine {
         }
 
         Player target = requireEligibleTarget(room, role, targetId);
+        if (role == Role.GUARDIAN && target.getId().equals(previousRoundGuardianTarget(room))) {
+            throw new InvalidGamePhaseException("The guardian can't protect the same player two nights in a row");
+        }
         NightActionEffect effect = effects.get(role);
         if (effect != null) {
             effect.validateTarget(target);
@@ -285,15 +295,31 @@ public class NightEngine {
     }
 
     /**
-     * Whether {@code playerId} is the angels' protected target this
-     * round — checked only against the werewolves' kill (see {@link
-     * #resolveDeferredKillsAndClearState}); the corrupted judge's kill
-     * ignores it entirely.
+     * The player the guardian protected last round, if any — {@code
+     * null} on round 1, or once there's no matching {@link NightAction}
+     * for the previous round. Enforced against re-selection in {@link
+     * #recordSelection}; also exposed so the master's client can grey
+     * that player out rather than let it round-trip as a rejected pick
+     * (see {@code GameService#buildMasterGameState}).
+     */
+    public Long previousRoundGuardianTarget(Room room) {
+        return nightActionRepository
+                .findByRoomIdAndRoundNumberAndRole(room.getId(), room.getRoundNumber() - 1, Role.GUARDIAN)
+                .map(NightAction::getTargetPlayerId)
+                .orElse(null);
+    }
+
+    /**
+     * Whether {@code playerId} is protected from the werewolves this
+     * round — by the angels or the guardian, both of which use the
+     * same kill-blocking mechanism — checked only against the
+     * werewolves' kill (see {@link #resolveDeferredKillsAndClearState});
+     * the corrupted judge's kill ignores it entirely.
      */
     private boolean isProtectedThisRound(Room room, Long playerId) {
-        return findAction(room, Role.ANGEL)
-                .map(action -> playerId.equals(action.getTargetPlayerId()))
-                .orElse(false);
+        return findAction(room, Role.ANGEL).map(action -> playerId.equals(action.getTargetPlayerId())).orElse(false)
+                || findAction(room, Role.GUARDIAN).map(action -> playerId.equals(action.getTargetPlayerId()))
+                        .orElse(false);
     }
 
     public Optional<NightAction> findAction(Room room, Role role) {

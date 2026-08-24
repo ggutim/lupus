@@ -109,4 +109,34 @@ class WinConditionEvaluatorTest {
 
         assertThat(evaluator.evaluate(room)).isEmpty();
     }
+
+    @Test
+    void evaluate_goodEvilHeadcount_corruptedJudgeDoesNotCountTowardWerewolfParity() {
+        Room room = room();
+        Player wolf = player(room, Role.WEREWOLF, true);
+        Player judge = player(room, Role.CORRUPTED_JUDGE, true);
+        Player priest = player(room, Role.PRIEST, true);
+        Player v1 = player(room, Role.VILLAGER, true);
+        when(playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId()))
+                .thenReturn(List.of(wolf, judge, priest, v1));
+
+        WinConditionEvaluator evaluator = new WinConditionEvaluator(
+                List.of(new GoodEvilHeadcountWinCondition(playerRepository)));
+
+        assertThat(evaluator.evaluate(room)).isEmpty();
+    }
+
+    @Test
+    void evaluate_goodEvilHeadcount_notGoodWinWhileCorruptedJudgeAliveEvenIfNoWerewolvesLeft() {
+        Room room = room();
+        Player judge = player(room, Role.CORRUPTED_JUDGE, true);
+        Player v1 = player(room, Role.VILLAGER, true);
+        when(playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId()))
+                .thenReturn(List.of(judge, v1));
+
+        WinConditionEvaluator evaluator = new WinConditionEvaluator(
+                List.of(new GoodEvilHeadcountWinCondition(playerRepository)));
+
+        assertThat(evaluator.evaluate(room)).isEmpty();
+    }
 }

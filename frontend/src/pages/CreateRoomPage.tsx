@@ -28,6 +28,7 @@ function CreateRoomPage() {
   const [idiotCount, setIdiotCount] = useState(0)
   const [corruptedJudgeCount, setCorruptedJudgeCount] = useState(0)
   const [survivorCount, setSurvivorCount] = useState(0)
+  const [guardianCount, setGuardianCount] = useState(0)
   const [otherRolesOpen, setOtherRolesOpen] = useState(false)
   const [modeInfoOpen, setModeInfoOpen] = useState(false)
   const [infoRole, setInfoRole] = useState<AssignableRole | null>(null)
@@ -50,7 +51,7 @@ function CreateRoomPage() {
         { key: 'roles', label: 'Ruoli' },
       ]
 
-  const otherRolesCount = gravediggerCount + idiotCount + corruptedJudgeCount + survivorCount
+  const otherRolesCount = gravediggerCount + idiotCount + corruptedJudgeCount + survivorCount + guardianCount
   const specialRoleCount = werewolfCount + priestCount + otherRolesCount
   const villagerCount = Math.max(playerCount - specialRoleCount, 0)
   const rolesExceedPlayers = specialRoleCount > playerCount
@@ -68,6 +69,7 @@ function CreateRoomPage() {
         idiotCount,
         corruptedJudgeCount,
         survivorCount,
+        guardianCount,
         remoteJoin,
         manualRoles,
       })
@@ -246,6 +248,7 @@ function CreateRoomPage() {
               align={ROLE_ALIGNMENT.PRIEST}
               count={priestCount}
               min={0}
+              max={1}
               onChange={setPriestCount}
               onInfoClick={() => setInfoRole('PRIEST')}
             />
@@ -265,6 +268,7 @@ function CreateRoomPage() {
                   align={ROLE_ALIGNMENT.GRAVEDIGGER}
                   count={gravediggerCount}
                   min={0}
+                  max={1}
                   onChange={setGravediggerCount}
                   onInfoClick={() => setInfoRole('GRAVEDIGGER')}
                 />
@@ -295,6 +299,16 @@ function CreateRoomPage() {
                   min={0}
                   onChange={setSurvivorCount}
                   onInfoClick={() => setInfoRole('SURVIVOR')}
+                />
+                <RoleCard
+                  icon={ROLE_SETUP_INFO.GUARDIAN.icon}
+                  label="Guardiani"
+                  align={ROLE_ALIGNMENT.GUARDIAN}
+                  count={guardianCount}
+                  min={0}
+                  max={1}
+                  onChange={setGuardianCount}
+                  onInfoClick={() => setInfoRole('GUARDIAN')}
                 />
               </div>
             </details>
