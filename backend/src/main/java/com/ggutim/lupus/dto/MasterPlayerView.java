@@ -12,12 +12,14 @@ import com.ggutim.lupus.model.Role;
  * {@code ANGEL} — it's what they were before, kept for display only.
  * {@code protectionBlocked} is afterlife-mode only too: permanently
  * true once an angel has protected this player while cursed.
+ * {@code killerRevealUsed} is only meaningful for the killer: whether
+ * they've already used their once-per-game reveal-and-guess power.
  */
 public record MasterPlayerView(Long id, String nickname, boolean alive, Role role, Role originalRole,
-        boolean protectionBlocked) {
+        boolean protectionBlocked, boolean killerRevealUsed) {
 
     public static MasterPlayerView from(Player player) {
         return new MasterPlayerView(player.getId(), player.getNickname(), player.isAlive(), player.getRole(),
-                player.getOriginalRole(), player.isProtectionBlocked());
+                player.getOriginalRole(), player.isProtectionBlocked(), player.isKillerRevealUsed());
     }
 }

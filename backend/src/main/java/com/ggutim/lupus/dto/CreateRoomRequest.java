@@ -8,8 +8,8 @@ import jakarta.validation.constraints.NotNull;
 /**
  * Payload sent by the master at the end of the room-creation wizard:
  * game mode, total player count, and the number of werewolves, priests,
- * gravediggers, idiots, corrupted judges, survivors and guardians. The
- * remaining players are assigned the villager role.
+ * gravediggers, idiots, corrupted judges, survivors, guardians and
+ * killers. The remaining players are assigned the villager role.
  *
  * <p>The allowed range for {@code playerCount} is configurable (see
  * {@link com.ggutim.lupus.config.GameRules}) and is therefore validated in
@@ -54,6 +54,11 @@ public record CreateRoomRequest(
         @Min(value = 0, message = "guardianCount must be at least 0")
         @Max(value = 1, message = "guardianCount cannot be more than 1")
         Integer guardianCount,
+
+        @NotNull(message = "killerCount is required")
+        @Min(value = 0, message = "killerCount must be at least 0")
+        @Max(value = 1, message = "killerCount cannot be more than 1")
+        Integer killerCount,
 
         @NotNull(message = "remoteJoin is required")
         Boolean remoteJoin,

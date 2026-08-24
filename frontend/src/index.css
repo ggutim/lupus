@@ -1159,3 +1159,23 @@ select {
   width: 100%;
   box-sizing: border-box;
 }
+
+.killer-reveal-button {
+  margin-top: 4px;
+  padding: 4px 2px;
+  border: none;
+  background: none;
+  font-family: var(--font-body);
+  font-size: 0.78rem;
+  font-style: italic;
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  cursor: pointer;
+  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+}
+
+.killer-reveal-button:hover {
+  color: var(--ink);
+  text-decoration-color: currentColor;
+}

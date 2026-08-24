@@ -13,4 +13,5 @@ export const ROLE_ALIGNMENT: Record<Role, RoleAlignment> = {
   GHOST: 'EVIL',
   ANGEL: 'GOOD',
   GUARDIAN: 'GOOD',
+  KILLER: 'EVIL',
 }

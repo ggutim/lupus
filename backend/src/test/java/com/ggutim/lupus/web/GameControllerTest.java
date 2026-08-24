@@ -7,11 +7,13 @@ import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
+import com.ggutim.lupus.dto.KillerGuessResponse;
 import com.ggutim.lupus.dto.MasterGameStateResponse;
 import com.ggutim.lupus.exception.InvalidGamePhaseException;
 import com.ggutim.lupus.exception.MasterTokenMismatchException;
 import com.ggutim.lupus.exception.PlayerNotFoundException;
 import com.ggutim.lupus.model.GamePhase;
+import com.ggutim.lupus.model.Role;
 import com.ggutim.lupus.service.GameService;
 import java.util.List;
 import org.junit.jupiter.api.Test;
@@ -128,5 +130,37 @@ class GameControllerTest {
                         """)
                 .assertThat()
                 .hasStatusOk();
+    }
+
+    @Test
+    void revealKillerAndGuess_returnsWhetherTheGuessWasCorrect() {
+        when(gameService.revealKillerAndGuess(eq("ABCD"), eq("secret-token"), eq(7L), eq(Role.PRIEST)))
+                .thenReturn(new KillerGuessResponse(true, state(GamePhase.DISCUSSION)));
+
+        mvc.post().uri("/api/rooms/ABCD/game/killer-guess")
+                .header("X-Master-Token", "secret-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"targetPlayerId":7,"guessedRole":"PRIEST"}
+                        """)
+                .assertThat()
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.correct").isEqualTo(true);
+    }
+
+    @Test
+    void revealKillerAndGuess_returnsConflictWhenNotAllowedRightNow() {
+        doThrow(new InvalidGamePhaseException("nope")).when(gameService)
+                .revealKillerAndGuess(eq("ABCD"), any(), any(), any());
+
+        mvc.post().uri("/api/rooms/ABCD/game/killer-guess")
+                .header("X-Master-Token", "secret-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"targetPlayerId":7,"guessedRole":"PRIEST"}
+                        """)
+                .assertThat()
+                .hasStatus(409);
     }
 }

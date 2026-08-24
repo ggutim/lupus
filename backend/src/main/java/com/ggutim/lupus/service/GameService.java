@@ -1,6 +1,7 @@
 package com.ggutim.lupus.service;
 
 import com.ggutim.lupus.dto.GameUpdatedMessage;
+import com.ggutim.lupus.dto.KillerGuessResponse;
 import com.ggutim.lupus.dto.MasterGameStateResponse;
 import com.ggutim.lupus.dto.MasterPlayerView;
 import com.ggutim.lupus.dto.PlayerResponse;
@@ -25,6 +26,7 @@ import com.ggutim.lupus.service.night.SoloWinEvaluator;
 import com.ggutim.lupus.service.night.WinConditionEvaluator;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -46,6 +48,10 @@ import org.springframework.transaction.annotation.Transactional;
  */
 @Service
 public class GameService {
+
+    /** Day phases where the village is awake, so the killer can reveal (see {@link #revealKillerAndGuess}). */
+    private static final Set<GamePhase> KILLER_REVEAL_PHASES =
+            Set.of(GamePhase.MORNING_REVEAL, GamePhase.DISCUSSION, GamePhase.VOTE_SELECT_TARGET);
 
     private final RoomRepository roomRepository;
     private final PlayerRepository playerRepository;
@@ -141,6 +147,80 @@ public class GameService {
 
         broadcastGameUpdated(room);
         return buildMasterGameState(room);
+    }
+
+    /**
+     * The killer's once-per-game power: reveal themselves to the table
+     * and guess {@code targetPlayerId}'s exact role, in one atomic
+     * action. Unlike every other role's power, this isn't a scripted
+     * night turn — it's a voluntary action the killer can trigger on
+     * any day the village is awake (see {@link #requireKillerRevealPhase}),
+     * so it doesn't touch {@code currentNightRole}/{@code currentNightStepKind}
+     * or the room's phase at all unless it ends the game.
+     *
+     * <p>A correct guess kills the target outright — ignoring the
+     * guardian/angel's protection and the survivor's extra life,
+     * exactly like the corrupted judge's kill (see {@link
+     * com.ggutim.lupus.service.night.CorruptedJudgeKillEffect}) —
+     * since neither mechanism is even consulted here. A wrong guess
+     * kills the killer instead. Either way this uses up the power for
+     * the rest of the game.
+     */
+    @Transactional
+    public KillerGuessResponse revealKillerAndGuess(String code, String masterToken, Long targetPlayerId,
+            Role guessedRole) {
+        Room room = roomService.findRoomForMaster(code, masterToken);
+        ensureGameStarted(room);
+        requireKillerRevealPhase(room);
+
+        Player killer = requireAliveKillerWithUnusedReveal(room);
+        Player target = requireAlivePlayerInRoom(room, targetPlayerId);
+        if (target.getId().equals(killer.getId())) {
+            throw new InvalidGamePhaseException("The killer cannot guess himself");
+        }
+
+        killer.setKillerRevealUsed(true);
+
+        boolean correct = target.getRole() == guessedRole;
+        Long victimId;
+        if (correct) {
+            target.kill();
+            victimId = target.getId();
+        } else {
+            killer.kill();
+            victimId = killer.getId();
+        }
+        playerRepository.save(killer);
+        playerRepository.save(target);
+        applyAfterlifeTransition(room, victimId);
+
+        resolveWinnerIfAny(room, new RoundEvent(RoundEvent.Cause.KILLER_GUESS, List.of(victimId)));
+        roomRepository.save(room);
+
+        broadcastGameUpdated(room);
+        return new KillerGuessResponse(correct, buildMasterGameState(room));
+    }
+
+    private void requireKillerRevealPhase(Room room) {
+        if (!KILLER_REVEAL_PHASES.contains(room.getPhase())) {
+            throw new InvalidGamePhaseException(
+                    "The killer can only reveal while the village is awake during the day");
+        }
+    }
+
+    private Player requireAliveKillerWithUnusedReveal(Room room) {
+        Player killer = playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId()).stream()
+                .filter(player -> player.getRole() == Role.KILLER)
+                .findFirst()
+                .orElseThrow(() -> new InvalidGamePhaseException("This room has no killer"));
+
+        if (!killer.isAlive()) {
+            throw new InvalidGamePhaseException("The killer is dead and cannot reveal");
+        }
+        if (killer.isKillerRevealUsed()) {
+            throw new InvalidGamePhaseException("The killer has already used their reveal this game");
+        }
+        return killer;
     }
 
     @Transactional

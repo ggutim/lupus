@@ -13,6 +13,7 @@ import {
   GravediggerIcon,
   GuardianIcon,
   IdiotIcon,
+  KillerIcon,
   MeepleIcon,
   PriestIcon,
   SkullIcon,
@@ -66,6 +67,11 @@ const ROLE_INFO: Record<Role, { description: string; icon: ReactNode }> = {
     description:
       'Ogni notte scegli un giocatore vivo (anche te stesso) da proteggere dai lupi mannari. Non puoi proteggere lo stesso giocatore due notti di fila.',
     icon: <GuardianIcon />,
+  },
+  KILLER: {
+    description:
+      'Una volta per partita, di giorno, puoi scoprirti davanti a tutti e indovinare il ruolo esatto di un altro giocatore. Se indovini, muore lui; se sbagli, muori tu.',
+    icon: <KillerIcon />,
   },
 }
 

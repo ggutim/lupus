@@ -3,15 +3,18 @@ import { Link, useParams } from 'react-router-dom'
 import {
   advancePhase,
   getGameState,
+  revealKillerAndGuess,
   selectNightTarget,
   selectVoteVictim,
   type Alignment,
+  type GamePhase,
   type MasterGameState,
   type MasterPlayerView,
 } from '../api/game'
 import { ApiError, type Role } from '../api/rooms'
 import { subscribeToGame } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
+import KillerGuessDialog from '../components/KillerGuessDialog'
 import VillageOverviewDialog from '../components/VillageOverviewDialog'
 import { useDialog } from '../components/useDialog'
 import { useMasterAccess } from '../components/useMasterAccess'
@@ -333,6 +336,15 @@ function selectablePlayers(state: MasterGameState): MasterPlayerView[] {
   return alive
 }
 
+/** Day phases where the village is awake, so the killer can reveal — mirrors the backend's KILLER_REVEAL_PHASES. */
+const KILLER_REVEAL_PHASES: GamePhase[] = ['MORNING_REVEAL', 'DISCUSSION', 'VOTE_SELECT_TARGET']
+
+/** The room's living, not-yet-used killer, if this is a moment they could reveal — null otherwise. */
+function revealableKiller(state: MasterGameState): MasterPlayerView | null {
+  if (!KILLER_REVEAL_PHASES.includes(state.phase)) return null
+  return state.players.find((player) => player.role === 'KILLER' && player.alive && !player.killerRevealUsed) ?? null
+}
+
 function MasterGamePage() {
   const { code } = useParams<{ code: string }>()
   const { showAlert } = useDialog()
@@ -341,6 +353,7 @@ function MasterGamePage() {
   const [state, setState] = useState<MasterGameState | null>(null)
   const [busy, setBusy] = useState(false)
   const [villageOpen, setVillageOpen] = useState(false)
+  const [killerGuessOpen, setKillerGuessOpen] = useState(false)
 
   const refresh = useCallback(() => {
     if (!code || !masterToken) return
@@ -421,6 +434,29 @@ function MasterGamePage() {
     }
   }
 
+  const handleKillerGuess = async (targetPlayerId: number, guessedRole: Role) => {
+    if (!code || !masterToken || busy) return
+    setBusy(true)
+    try {
+      const targetName = playerName(state.players, targetPlayerId)
+      const result = await revealKillerAndGuess(code, masterToken, targetPlayerId, guessedRole)
+      setState(result.gameState)
+      setKillerGuessOpen(false)
+      await showAlert({
+        title: result.correct ? 'Il killer indovina!' : 'Il killer sbaglia!',
+        message: result.correct
+          ? `Il ruolo di ${targetName} era proprio ${ROLE_LABELS[guessedRole]}: muore.`
+          : `${targetName} non era ${ROLE_LABELS[guessedRole]}: il killer muore al suo posto.`,
+      })
+    } catch (err) {
+      showAlert(err instanceof ApiError ? err.message : 'Impossibile registrare la rivelazione. Riprova.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const killer = revealableKiller(state)
+
   return (
     <BoardPanel>
       <h1>Round {toRomanNumeral(state.roundNumber)}</h1>
@@ -479,6 +515,19 @@ function MasterGamePage() {
           </Link>
         )}
       </div>
+
+      {killer && (
+        <button type="button" className="killer-reveal-button" onClick={() => setKillerGuessOpen(true)}>
+          Il killer si rivela…
+        </button>
+      )}
+      <KillerGuessDialog
+        open={killerGuessOpen}
+        onClose={() => setKillerGuessOpen(false)}
+        busy={busy}
+        targets={killer ? state.players.filter((player) => player.alive && player.id !== killer.id) : []}
+        onConfirm={handleKillerGuess}
+      />
     </BoardPanel>
   )
 }

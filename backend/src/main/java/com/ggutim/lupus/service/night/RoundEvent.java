@@ -11,12 +11,15 @@ import java.util.List;
  * <p>{@code victimPlayerIds} is empty when nobody died. A vote event
  * is always 0 or 1 victims (single-target voting); a night event can
  * now be 0, 1, or more (the werewolves and, when active, the
- * corrupted judge each kill independently).
+ * corrupted judge each kill independently). A killer-guess event is
+ * always exactly 1 victim — either the guessed player (correct guess)
+ * or the killer himself (wrong guess).
  */
 public record RoundEvent(Cause cause, List<Long> victimPlayerIds) {
 
     public enum Cause {
         NIGHT_KILL,
-        VOTE_KILL
+        VOTE_KILL,
+        KILLER_GUESS
     }
 }

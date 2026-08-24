@@ -12,6 +12,7 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 
 import com.ggutim.lupus.dto.GameUpdatedMessage;
+import com.ggutim.lupus.dto.KillerGuessResponse;
 import com.ggutim.lupus.dto.MasterGameStateResponse;
 import com.ggutim.lupus.dto.PlayerResponse;
 import com.ggutim.lupus.dto.VillageOverviewResponse;
@@ -350,6 +351,137 @@ class GameServiceTest {
 
         assertThatThrownBy(() -> gameService().selectVoteVictim(CODE, MASTER_TOKEN, 1L))
                 .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    // ---------- revealKillerAndGuess ----------
+
+    @Test
+    void revealKillerAndGuess_rejectsDuringNight() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
+        mockMasterRoom(room);
+
+        assertThatThrownBy(() -> gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, 1L, Role.VILLAGER))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void revealKillerAndGuess_rejectsWhenRoomHasNoKiller() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player target = player(room, "V1", Role.VILLAGER, true);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(target));
+
+        assertThatThrownBy(() -> gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, target.getId(), Role.VILLAGER))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void revealKillerAndGuess_rejectsWhenKillerIsDead() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player killer = player(room, "KILLER", Role.KILLER, false);
+        Player target = player(room, "V1", Role.VILLAGER, true);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
+
+        assertThatThrownBy(() -> gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, target.getId(), Role.VILLAGER))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void revealKillerAndGuess_rejectsWhenAlreadyUsed() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player killer = player(room, "KILLER", Role.KILLER, true);
+        killer.setKillerRevealUsed(true);
+        Player target = player(room, "V1", Role.VILLAGER, true);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
+
+        assertThatThrownBy(() -> gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, target.getId(), Role.VILLAGER))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void revealKillerAndGuess_rejectsGuessingHimself() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player killer = player(room, "KILLER", Role.KILLER, true);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer));
+        when(playerRepository.findById(killer.getId())).thenReturn(Optional.of(killer));
+
+        assertThatThrownBy(() -> gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, killer.getId(), Role.KILLER))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void revealKillerAndGuess_correctGuessKillsTargetAndSparesKiller() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player killer = player(room, "KILLER", Role.KILLER, true);
+        Player target = player(room, "PRIEST", Role.PRIEST, true);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
+        when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
+
+        KillerGuessResponse response =
+                gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, target.getId(), Role.PRIEST);
+
+        assertThat(response.correct()).isTrue();
+        assertThat(target.isAlive()).isFalse();
+        assertThat(killer.isAlive()).isTrue();
+        assertThat(killer.isKillerRevealUsed()).isTrue();
+    }
+
+    @Test
+    void revealKillerAndGuess_correctGuessIgnoresSurvivorExtraLife() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player killer = player(room, "KILLER", Role.KILLER, true);
+        Player target = player(room, "SURV", Role.SURVIVOR, true);
+        target.setExtraLives(1);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
+        when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
+
+        gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, target.getId(), Role.SURVIVOR);
+
+        assertThat(target.isAlive()).isFalse();
+        assertThat(target.getExtraLives()).isEqualTo(1);
+    }
+
+    @Test
+    void revealKillerAndGuess_wrongGuessKillsKillerAndSparesTarget() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player killer = player(room, "KILLER", Role.KILLER, true);
+        Player target = player(room, "PRIEST", Role.PRIEST, true);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
+        when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
+
+        KillerGuessResponse response =
+                gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, target.getId(), Role.GRAVEDIGGER);
+
+        assertThat(response.correct()).isFalse();
+        assertThat(killer.isAlive()).isFalse();
+        assertThat(target.isAlive()).isTrue();
+        assertThat(killer.isKillerRevealUsed()).isTrue();
+    }
+
+    @Test
+    void revealKillerAndGuess_endsGameWhenWinConditionMet() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player killer = player(room, "KILLER", Role.KILLER, true);
+        Player target = player(room, "PRIEST", Role.PRIEST, true);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
+        when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.of(Alignment.EVIL));
+
+        KillerGuessResponse response =
+                gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, target.getId(), Role.PRIEST);
+
+        assertThat(response.gameState().phase()).isEqualTo(GamePhase.GAME_OVER);
+        assertThat(response.gameState().winner()).isEqualTo(Alignment.EVIL);
     }
 
     // ---------- advancePhase: skeleton phase sequencing ----------

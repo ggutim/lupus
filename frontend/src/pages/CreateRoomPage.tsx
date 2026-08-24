@@ -29,6 +29,7 @@ function CreateRoomPage() {
   const [corruptedJudgeCount, setCorruptedJudgeCount] = useState(0)
   const [survivorCount, setSurvivorCount] = useState(0)
   const [guardianCount, setGuardianCount] = useState(0)
+  const [killerCount, setKillerCount] = useState(0)
   const [otherRolesOpen, setOtherRolesOpen] = useState(false)
   const [modeInfoOpen, setModeInfoOpen] = useState(false)
   const [infoRole, setInfoRole] = useState<AssignableRole | null>(null)
@@ -51,7 +52,8 @@ function CreateRoomPage() {
         { key: 'roles', label: 'Ruoli' },
       ]
 
-  const otherRolesCount = gravediggerCount + idiotCount + corruptedJudgeCount + survivorCount + guardianCount
+  const otherRolesCount =
+    gravediggerCount + idiotCount + corruptedJudgeCount + survivorCount + guardianCount + killerCount
   const specialRoleCount = werewolfCount + priestCount + otherRolesCount
   const villagerCount = Math.max(playerCount - specialRoleCount, 0)
   const rolesExceedPlayers = specialRoleCount > playerCount
@@ -70,6 +72,7 @@ function CreateRoomPage() {
         corruptedJudgeCount,
         survivorCount,
         guardianCount,
+        killerCount,
         remoteJoin,
         manualRoles,
       })
@@ -309,6 +312,16 @@ function CreateRoomPage() {
                   max={1}
                   onChange={setGuardianCount}
                   onInfoClick={() => setInfoRole('GUARDIAN')}
+                />
+                <RoleCard
+                  icon={ROLE_SETUP_INFO.KILLER.icon}
+                  label="Assassini"
+                  align={ROLE_ALIGNMENT.KILLER}
+                  count={killerCount}
+                  min={0}
+                  max={1}
+                  onChange={setKillerCount}
+                  onInfoClick={() => setInfoRole('KILLER')}
                 />
               </div>
             </details>

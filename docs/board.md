@@ -10,7 +10,7 @@
 | 6  | Implement afterlife mode, introducing "ghost" and "angel" roles                                             | DONE    |
 | 7  | Card given to a player should be hidden by default. Discover only on tap                                    | DONE    |
 | 8  | New evil role: "corrupted judge"                                                                            | DONE    |
-| 9  | New evil role: "killer"                                                                                     | BACKLOG |
+| 9  | New evil role: "killer"                                                                                     | DONE    |
 | 10 | New good role: "gravedigger"                                                                                | DONE    |
 | 11 | New good role: "survivor"                                                                                   | DONE    |
 | 12 | New good role: "hunter"                                                                                     | BACKLOG |

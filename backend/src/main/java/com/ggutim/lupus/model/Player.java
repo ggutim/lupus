@@ -61,6 +61,15 @@ public class Player {
     private boolean protectionBlocked = false;
 
     /**
+     * Once-per-game flag for the killer's power: revealing themselves
+     * to the table and guessing another player's exact role (see
+     * {@code GameService#revealKillerAndGuess}). Irrelevant for every
+     * other role, and never reset once set.
+     */
+    @Column(nullable = false)
+    private boolean killerRevealUsed = false;
+
+    /**
      * Extra lives beyond the usual single life, e.g. the survivor's
      * (see {@link Role#getStartingExtraLives()}). Consulted only by
      * whichever kill mechanic cares — today, the werewolves' — not a
@@ -135,6 +144,14 @@ public class Player {
 
     public void setProtectionBlocked(boolean protectionBlocked) {
         this.protectionBlocked = protectionBlocked;
+    }
+
+    public boolean isKillerRevealUsed() {
+        return killerRevealUsed;
+    }
+
+    public void setKillerRevealUsed(boolean killerRevealUsed) {
+        this.killerRevealUsed = killerRevealUsed;
     }
 
     public int getExtraLives() {

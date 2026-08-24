@@ -5,6 +5,7 @@ import {
   GravediggerIcon,
   GuardianIcon,
   IdiotIcon,
+  KillerIcon,
   PriestIcon,
   SurvivorIcon,
   VillagerIcon,
@@ -61,5 +62,10 @@ export const ROLE_SETUP_INFO: Record<AssignableRole, { icon: ReactNode; descript
     icon: <GuardianIcon />,
     description:
       'Ogni notte, il guardiano protegge un giocatore vivo (anche se stesso): quella notte non può essere ucciso dai lupi mannari, ma resta vulnerabile al giudice corrotto. Non può proteggere lo stesso giocatore due notti di fila.',
+  },
+  KILLER: {
+    icon: <KillerIcon />,
+    description:
+      'Una volta per partita, di giorno, può scoprirsi davanti a tutti e indovinare il ruolo esatto di un altro giocatore. Se indovina, quel giocatore muore — anche se protetto o sopravvissuto. Se sbaglia, muore lui. Vince insieme ai lupi mannari.',
   },
 }

@@ -1,7 +1,10 @@
 package com.ggutim.lupus.web;
 
+import com.ggutim.lupus.dto.KillerGuessRequest;
+import com.ggutim.lupus.dto.KillerGuessResponse;
 import com.ggutim.lupus.dto.MasterGameStateResponse;
 import com.ggutim.lupus.dto.SelectTargetRequest;
+import jakarta.validation.Valid;
 import com.ggutim.lupus.service.GameService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
@@ -57,5 +60,14 @@ public class GameController {
             @RequestHeader(value = "X-Master-Token", required = false) String masterToken,
             @RequestBody SelectTargetRequest request) {
         return ResponseEntity.ok(gameService.selectVoteVictim(code.toUpperCase(), masterToken, request.playerId()));
+    }
+
+    @PostMapping("/killer-guess")
+    public ResponseEntity<KillerGuessResponse> revealKillerAndGuess(
+            @PathVariable String code,
+            @RequestHeader(value = "X-Master-Token", required = false) String masterToken,
+            @Valid @RequestBody KillerGuessRequest request) {
+        return ResponseEntity.ok(gameService.revealKillerAndGuess(code.toUpperCase(), masterToken,
+                request.targetPlayerId(), request.guessedRole()));
     }
 }

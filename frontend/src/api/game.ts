@@ -22,6 +22,8 @@ export interface MasterPlayerView {
   originalRole: Role | null
   /** Afterlife mode only: permanently true once an angel has protected this player while cursed. */
   protectionBlocked: boolean
+  /** Killer only: whether they've already used their once-per-game reveal-and-guess power. */
+  killerRevealUsed: boolean
 }
 
 export interface MasterGameState {
@@ -108,4 +110,32 @@ export function selectVoteVictim(
   playerId: number | null,
 ): Promise<MasterGameState> {
   return selectTarget('select-vote-victim', code, masterToken, playerId)
+}
+
+export interface KillerGuessResult {
+  correct: boolean
+  gameState: MasterGameState
+}
+
+/** The killer's once-per-game power: reveal themselves and guess targetPlayerId's exact role, in one shot. */
+export async function revealKillerAndGuess(
+  code: string,
+  masterToken: string,
+  targetPlayerId: number,
+  guessedRole: Role,
+): Promise<KillerGuessResult> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/game/killer-guess`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Token': masterToken,
+    },
+    body: JSON.stringify({ targetPlayerId, guessedRole }),
+  })
+
+  if (!response.ok) {
+    await handleErrorResponse(response, 'Impossibile registrare la rivelazione del killer.')
+  }
+
+  return response.json()
 }

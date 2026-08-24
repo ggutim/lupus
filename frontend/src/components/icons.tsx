@@ -119,6 +119,18 @@ export function GuardianIcon(props: IconProps) {
   )
 }
 
+export function KillerIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <circle cx="32" cy="8" r="4" fill="currentColor" />
+      <rect x="29" y="10" width="6" height="14" rx="3" fill="currentColor" />
+      <rect x="18" y="24" width="28" height="6" rx="2" fill="currentColor" />
+      <path d="M32 30 40 30 32 56 24 30Z" fill="currentColor" />
+      <path d="M32 33v17" stroke="#fff" strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  )
+}
+
 export function MeepleIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>

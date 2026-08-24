@@ -137,13 +137,14 @@ public class RoomService {
         int corruptedJudgeCount = request.corruptedJudgeCount();
         int survivorCount = request.survivorCount();
         int guardianCount = request.guardianCount();
+        int killerCount = request.killerCount();
 
         int specialRoleCount = werewolfCount + priestCount + gravediggerCount + idiotCount
-                + corruptedJudgeCount + survivorCount + guardianCount;
+                + corruptedJudgeCount + survivorCount + guardianCount + killerCount;
         if (specialRoleCount > playerCount) {
             throw new InvalidRulesetException(
                     "werewolfCount, priestCount, gravediggerCount, idiotCount, corruptedJudgeCount, "
-                            + "survivorCount and guardianCount cannot exceed playerCount");
+                            + "survivorCount, guardianCount and killerCount cannot exceed playerCount");
         }
 
         int villagerCount = playerCount - specialRoleCount;
@@ -156,6 +157,7 @@ public class RoomService {
         roleCounts.put(Role.CORRUPTED_JUDGE, corruptedJudgeCount);
         roleCounts.put(Role.SURVIVOR, survivorCount);
         roleCounts.put(Role.GUARDIAN, guardianCount);
+        roleCounts.put(Role.KILLER, killerCount);
         roleCounts.put(Role.VILLAGER, villagerCount);
         return roleCounts;
     }
