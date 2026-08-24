@@ -61,6 +61,17 @@ public class RoomController {
         return ResponseEntity.ok(gameService.getVillageOverview(code.toUpperCase()));
     }
 
+    /**
+     * Public counterpart to {@link #getRoom} for a player's own
+     * client — same safe fields, no master token. Used to catch up on
+     * room state (has the game started?) whenever the client's
+     * WebSocket connects or reconnects, in case a push was missed.
+     */
+    @GetMapping("/{code}/status")
+    public ResponseEntity<RoomStateMessage> getPublicRoomState(@PathVariable String code) {
+        return ResponseEntity.ok(roomService.getPublicRoomState(code.toUpperCase()));
+    }
+
     @PostMapping("/{code}/start")
     public ResponseEntity<Void> startGame(@PathVariable String code,
                                            @RequestHeader(value = "X-Master-Token", required = false) String masterToken) {

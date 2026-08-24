@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { subscribeToRoom } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
@@ -10,12 +10,15 @@ function PlayerWaitingPage() {
   const navigate = useNavigate()
   const nickname = (location.state as { nickname?: string } | null)?.nickname
   const { showAlert } = useDialog()
+  const hasAnnouncedStart = useRef(false)
 
   useEffect(() => {
     if (!code || !nickname) return
 
     const unsubscribe = subscribeToRoom(code, (state) => {
       if (state.status === 'STARTED') {
+        if (hasAnnouncedStart.current) return
+        hasAnnouncedStart.current = true
         showAlert({
           title: 'La partita sta per iniziare',
           message: 'Controlla il tuo ruolo!',

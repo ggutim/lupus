@@ -208,6 +208,27 @@ class RoomControllerTest {
     }
 
     @Test
+    void getPublicRoomState_returnsRoomStateWithoutAnyToken() {
+        RoomStateMessage state = new RoomStateMessage("ABCD", RoomStatus.STARTED, 6, List.of());
+        when(roomService.getPublicRoomState(eq("ABCD"))).thenReturn(state);
+
+        mvc.get().uri("/api/rooms/ABCD/status")
+                .assertThat()
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.status").isEqualTo("STARTED");
+    }
+
+    @Test
+    void getPublicRoomState_returnsNotFoundForUnknownCode() {
+        when(roomService.getPublicRoomState(eq("ZZZZ"))).thenThrow(new RoomNotFoundException("ZZZZ"));
+
+        mvc.get().uri("/api/rooms/ZZZZ/status")
+                .assertThat()
+                .hasStatus(404);
+    }
+
+    @Test
     void getRoster_returnsMasterRosterWithRoles() {
         MasterRoomStateResponse state = new MasterRoomStateResponse("ABCD", RoomStatus.WAITING_FOR_PLAYERS, 6,
                 false, true, Map.of(Role.WEREWOLF, 1, Role.VILLAGER, 5),

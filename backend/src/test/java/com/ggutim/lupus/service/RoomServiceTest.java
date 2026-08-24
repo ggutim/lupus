@@ -312,6 +312,27 @@ class RoomServiceTest {
     }
 
     @Test
+    void getPublicRoomState_returnsStateForExistingRoomWithoutAnyToken() {
+        Room room = room("ABCD", "secret-token", 6);
+        when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(List.of());
+
+        RoomStateMessage state = roomService().getPublicRoomState("abcd");
+
+        assertThat(state.code()).isEqualTo("ABCD");
+        assertThat(state.status()).isEqualTo(RoomStatus.WAITING_FOR_PLAYERS);
+        assertThat(state.playerCount()).isEqualTo(6);
+    }
+
+    @Test
+    void getPublicRoomState_rejectsUnknownCode() {
+        when(roomRepository.findByCode("ZZZZ")).thenReturn(Optional.empty());
+
+        assertThatThrownBy(() -> roomService().getPublicRoomState("zzzz"))
+                .isInstanceOf(RoomNotFoundException.class);
+    }
+
+    @Test
     void createRoom_generatesUniqueMasterTokenPerRoom() {
         when(roomRepository.existsByCode(any())).thenReturn(false);
         when(roomRepository.save(any())).thenAnswer(invocation -> invocation.getArgument(0));

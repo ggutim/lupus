@@ -119,6 +119,22 @@ export async function getRoomState(code: string, masterToken: string): Promise<R
   return response.json()
 }
 
+/**
+ * Same safe fields as {@link getRoomState} (no roles), but doesn't need
+ * a master token — for a player's own client to catch up on room state
+ * (has the game started?) whenever its WebSocket connects or
+ * reconnects, in case a push was missed. Used by `subscribeToRoom`.
+ */
+export async function getPublicRoomState(code: string): Promise<RoomState> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/status`)
+
+  if (!response.ok) {
+    await handleErrorResponse(response, 'Impossibile trovare la stanza.')
+  }
+
+  return response.json()
+}
+
 export async function joinRoom(code: string, nickname: string): Promise<JoinRoomResponse> {
   const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/players`, {
     method: 'POST',

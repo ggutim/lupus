@@ -57,7 +57,27 @@ public class RoomService {
 
     public RoomStateMessage getRoomState(String code, String masterToken) {
         Room room = findRoomForMaster(code, masterToken);
+        return buildRoomStateMessage(room);
+    }
 
+    /**
+     * Same safe fields as {@link #getRoomState} (no roles, just who's
+     * present and whether the game has started) but for any player's
+     * own client to poll — no master token needed, since this is
+     * exactly what's already broadcast unauthenticated to every
+     * subscriber of this room's WebSocket topic (see PlayerService's
+     * {@code broadcastRoomState}). Lets a client catch up on a change
+     * it missed — e.g. its socket wasn't connected yet, or had
+     * dropped — by fetching current state whenever it (re)connects,
+     * rather than being stuck waiting for a push that already happened.
+     */
+    public RoomStateMessage getPublicRoomState(String code) {
+        Room room = roomRepository.findByCode(code.toUpperCase())
+                .orElseThrow(() -> new RoomNotFoundException(code));
+        return buildRoomStateMessage(room);
+    }
+
+    private RoomStateMessage buildRoomStateMessage(Room room) {
         var players = playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId()).stream()
                 .map(PlayerResponse::from)
                 .toList();
