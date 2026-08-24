@@ -4,8 +4,7 @@ import BoardPanel from '../components/BoardPanel'
 function LandingPage() {
   return (
     <BoardPanel>
-      <h1>Lupus in Tabula</h1>
-      <p className="landing-subtitle">Il villaggio dorme... ma il male è già tra voi.</p>
+      <h1>Lupus</h1>
       <div className="landing-actions">
         <Link to="/create" className="button button-primary">
           Crea partita

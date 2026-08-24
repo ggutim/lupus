@@ -212,12 +212,6 @@ p {
 
 /* ---------- Buttons ---------- */
 
-.landing-subtitle {
-  font-style: italic;
-  color: var(--ink-soft);
-  margin-top: -12px;
-}
-
 .landing-actions {
   display: flex;
   flex-direction: column;
@@ -1074,14 +1068,6 @@ select {
     opacity: 1;
     transform: translateY(0) scale(1);
   }
-}
-
-.game-round {
-  font-family: var(--font-display);
-  font-size: 0.85rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--ink-soft);
 }
 
 .game-card {

@@ -125,6 +125,35 @@ const NIGHT_ROLE_CONTENT: Partial<Record<Role, NightRoleContent>> = {
   },
 }
 
+const ROMAN_NUMERAL_VALUES: [number, string][] = [
+  [1000, 'M'],
+  [900, 'CM'],
+  [500, 'D'],
+  [400, 'CD'],
+  [100, 'C'],
+  [90, 'XC'],
+  [50, 'L'],
+  [40, 'XL'],
+  [10, 'X'],
+  [9, 'IX'],
+  [5, 'V'],
+  [4, 'IV'],
+  [1, 'I'],
+]
+
+/** Formats the round number as a roman numeral for the game screen's title (e.g. "Round III"). */
+function toRomanNumeral(value: number): string {
+  let remaining = value
+  let result = ''
+  for (const [amount, symbol] of ROMAN_NUMERAL_VALUES) {
+    while (remaining >= amount) {
+      result += symbol
+      remaining -= amount
+    }
+  }
+  return result
+}
+
 function playerName(players: MasterPlayerView[], id: number | null): string {
   if (id === null) return '—'
   return players.find((player) => player.id === id)?.nickname ?? '—'
@@ -329,7 +358,6 @@ function MasterGamePage() {
   if (!state) {
     return (
       <BoardPanel>
-        <h1>Partita in corso</h1>
         <p>Caricamento…</p>
       </BoardPanel>
     )
@@ -395,8 +423,7 @@ function MasterGamePage() {
 
   return (
     <BoardPanel>
-      <h1>Partita in corso</h1>
-      <p className="game-round">Round {state.roundNumber}</p>
+      <h1>Round {toRomanNumeral(state.roundNumber)}</h1>
 
       <button type="button" className="button" onClick={() => setVillageOpen(true)}>
         Villaggio
