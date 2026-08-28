@@ -73,6 +73,15 @@ public class Room {
 
     private Long pendingVoteVictimId;
 
+    /**
+     * Set to the id of the mayor who just died whenever that leaves at
+     * least one other player alive to inherit the card — see {@code
+     * GameService#handlePotentialMayorSuccession}. While non-null, {@code
+     * GameService#advancePhase} refuses to continue: the master must
+     * resolve it via {@code GameService#assignMayorSuccessor} first.
+     */
+    private Long pendingMayorSuccessionPlayerId;
+
     @Enumerated(EnumType.STRING)
     private Alignment winner;
 
@@ -205,6 +214,14 @@ public class Room {
 
     public void setPendingVoteVictimId(Long pendingVoteVictimId) {
         this.pendingVoteVictimId = pendingVoteVictimId;
+    }
+
+    public Long getPendingMayorSuccessionPlayerId() {
+        return pendingMayorSuccessionPlayerId;
+    }
+
+    public void setPendingMayorSuccessionPlayerId(Long pendingMayorSuccessionPlayerId) {
+        this.pendingMayorSuccessionPlayerId = pendingMayorSuccessionPlayerId;
     }
 
     public Alignment getWinner() {

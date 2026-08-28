@@ -49,8 +49,12 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class GameService {
 
-    /** Day phases where the village is awake, so the killer can reveal (see {@link #revealKillerAndGuess}). */
-    private static final Set<GamePhase> KILLER_REVEAL_PHASES =
+    /**
+     * Day phases where the village is awake, so a voluntary reveal can
+     * happen — the killer's (see {@link #revealKillerAndGuess}) and the
+     * mayor's (see {@link #revealMayor}).
+     */
+    private static final Set<GamePhase> DAY_REVEAL_PHASES =
             Set.of(GamePhase.MORNING_REVEAL, GamePhase.DISCUSSION, GamePhase.VOTE_SELECT_TARGET);
 
     private final RoomRepository roomRepository;
@@ -194,7 +198,10 @@ public class GameService {
         playerRepository.save(target);
         applyAfterlifeTransition(room, victimId);
 
-        resolveWinnerIfAny(room, new RoundEvent(RoundEvent.Cause.KILLER_GUESS, List.of(victimId)));
+        boolean gameEnded = resolveWinnerIfAny(room, new RoundEvent(RoundEvent.Cause.KILLER_GUESS, List.of(victimId)));
+        if (!gameEnded) {
+            handlePotentialMayorSuccession(room, List.of(victimId));
+        }
         roomRepository.save(room);
 
         broadcastGameUpdated(room);
@@ -202,9 +209,113 @@ public class GameService {
     }
 
     private void requireKillerRevealPhase(Room room) {
-        if (!KILLER_REVEAL_PHASES.contains(room.getPhase())) {
+        if (!DAY_REVEAL_PHASES.contains(room.getPhase())) {
             throw new InvalidGamePhaseException(
                     "The killer can only reveal while the village is awake during the day");
+        }
+    }
+
+    /**
+     * The mayor's optional day-time reveal: a one-way switch announcing
+     * to the table who currently holds the mayor status. There's no
+     * vote tally in this app for that to affect automatically — it's
+     * purely informational, so whoever's counting votes at the table
+     * remembers to weigh this player's vote double.
+     */
+    @Transactional
+    public MasterGameStateResponse revealMayor(String code, String masterToken) {
+        Room room = roomService.findRoomForMaster(code, masterToken);
+        ensureGameStarted(room);
+        requireMayorRevealPhase(room);
+
+        Player mayor = requireAliveUnrevealedMayor(room);
+        mayor.setMayorRevealed(true);
+        playerRepository.save(mayor);
+
+        broadcastGameUpdated(room);
+        return buildMasterGameState(room);
+    }
+
+    /**
+     * Mandatory once {@link #handlePotentialMayorSuccession} has flagged
+     * a pending succession: the dying mayor hands their card to {@code
+     * successorPlayerId}, who becomes the new mayor while keeping
+     * whatever role they already had — mayor status lives orthogonally
+     * to {@link Role} (see {@link Player#isMayor()}) precisely so it can
+     * land on top of any other role. The new holder starts unrevealed,
+     * same as the very first mayor at game start.
+     */
+    @Transactional
+    public MasterGameStateResponse assignMayorSuccessor(String code, String masterToken, Long successorPlayerId) {
+        Room room = roomService.findRoomForMaster(code, masterToken);
+        ensureGameStarted(room);
+
+        Long deadMayorId = room.getPendingMayorSuccessionPlayerId();
+        if (deadMayorId == null) {
+            throw new InvalidGamePhaseException("There is no pending mayor succession");
+        }
+
+        Player successor = requireAlivePlayerInRoom(room, successorPlayerId);
+        Player deadMayor = playerRepository.findById(deadMayorId)
+                .orElseThrow(() -> new PlayerNotFoundException(deadMayorId));
+
+        deadMayor.setMayor(false);
+        successor.setMayor(true);
+        successor.setMayorRevealed(false);
+        playerRepository.save(deadMayor);
+        playerRepository.save(successor);
+
+        room.setPendingMayorSuccessionPlayerId(null);
+        roomRepository.save(room);
+
+        broadcastGameUpdated(room);
+        return buildMasterGameState(room);
+    }
+
+    private void requireMayorRevealPhase(Room room) {
+        if (!DAY_REVEAL_PHASES.contains(room.getPhase())) {
+            throw new InvalidGamePhaseException(
+                    "The mayor can only reveal while the village is awake during the day");
+        }
+    }
+
+    private Player requireAliveUnrevealedMayor(Room room) {
+        Player mayor = playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId()).stream()
+                .filter(Player::isMayor)
+                .findFirst()
+                .orElseThrow(() -> new InvalidGamePhaseException("This room has no mayor"));
+
+        if (!mayor.isAlive()) {
+            throw new InvalidGamePhaseException("The mayor is dead and cannot reveal");
+        }
+        if (mayor.isMayorRevealed()) {
+            throw new InvalidGamePhaseException("The mayor has already revealed themselves");
+        }
+        return mayor;
+    }
+
+    /**
+     * Checks whether any of {@code victimIds} was the current mayor and,
+     * if so and at least one other player is still alive to inherit the
+     * card, sets {@link Room#setPendingMayorSuccessionPlayerId} — which
+     * blocks {@link #advancePhase} until resolved via {@link
+     * #assignMayorSuccessor}. Called after every kill site's win-check,
+     * only when the game didn't just end (a dead room has nobody left to
+     * hand a card to, and nothing left to block).
+     */
+    private void handlePotentialMayorSuccession(Room room, List<Long> victimIds) {
+        for (Long victimId : victimIds) {
+            Player victim = playerRepository.findById(victimId).orElse(null);
+            if (victim == null || !victim.isMayor()) {
+                continue;
+            }
+            boolean anyoneElseAlive = playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId())
+                    .stream()
+                    .anyMatch(player -> !player.getId().equals(victimId));
+            if (anyoneElseAlive) {
+                room.setPendingMayorSuccessionPlayerId(victimId);
+            }
+            return;
         }
     }
 
@@ -227,6 +338,7 @@ public class GameService {
     public MasterGameStateResponse advancePhase(String code, String masterToken) {
         Room room = roomService.findRoomForMaster(code, masterToken);
         ensureGameStarted(room);
+        requireNoPendingMayorSuccession(room);
 
         switch (room.getPhase()) {
             case ROLES_ASSIGNED -> room.setPhase(GamePhase.NIGHT_START);
@@ -288,6 +400,7 @@ public class GameService {
             return;
         }
 
+        handlePotentialMayorSuccession(room, victimIds);
         room.setPhase(GamePhase.MORNING_REVEAL);
     }
 
@@ -305,11 +418,12 @@ public class GameService {
         // Public trigger for the corrupted judge's conditional night turn — see NightActionEffect#isEligibleThisRound.
         room.setNoOneVotedOutPreviousDay(voteVictimId == null);
 
-        if (resolveWinnerIfAny(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL,
-                voteVictimId == null ? List.of() : List.of(voteVictimId)))) {
+        List<Long> victimIds = voteVictimId == null ? List.of() : List.of(voteVictimId);
+        if (resolveWinnerIfAny(room, new RoundEvent(RoundEvent.Cause.VOTE_KILL, victimIds))) {
             return;
         }
 
+        handlePotentialMayorSuccession(room, victimIds);
         room.setRoundNumber(room.getRoundNumber() + 1);
         room.setPhase(GamePhase.NIGHT_START);
     }
@@ -380,6 +494,12 @@ public class GameService {
         if (room.getPhase() != expected) {
             throw new InvalidGamePhaseException(
                     "This action requires phase " + expected + " but the room is in " + room.getPhase());
+        }
+    }
+
+    private void requireNoPendingMayorSuccession(Room room) {
+        if (room.getPendingMayorSuccessionPlayerId() != null) {
+            throw new InvalidGamePhaseException("The mayor must name a successor before the game can continue");
         }
     }
 

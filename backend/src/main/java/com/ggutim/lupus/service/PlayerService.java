@@ -202,7 +202,7 @@ public class PlayerService {
         }
 
         boolean visiblyAlive = PlayerResponse.visibleDuring(player, room.getPhase()).alive();
-        return new PlayerRoleResponse(player.getRole(), visiblyAlive);
+        return new PlayerRoleResponse(player.getRole(), visiblyAlive, player.isMayor());
     }
 
     private void broadcastRoomState(Room room) {

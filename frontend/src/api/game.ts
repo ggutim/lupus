@@ -24,6 +24,10 @@ export interface MasterPlayerView {
   protectionBlocked: boolean
   /** Killer only: whether they've already used their once-per-game reveal-and-guess power. */
   killerRevealUsed: boolean
+  /** Whether this player currently holds the mayor status — orthogonal to role, since a successor keeps their own. */
+  mayor: boolean
+  /** Only meaningful when mayor is true: whether they've announced themselves to the table. */
+  mayorRevealed: boolean
 }
 
 export interface MasterGameState {
@@ -46,6 +50,8 @@ export interface MasterGameState {
   winner: Alignment | null
   winningRole: Role | null
   remoteJoin: boolean
+  /** Set once the current mayor has died and someone else is alive to inherit the card — see assignMayorSuccessor. */
+  pendingMayorSuccessionPlayerId: number | null
 }
 
 async function handleErrorResponse(response: Response, fallbackMessage: string): Promise<never> {
@@ -135,6 +141,42 @@ export async function revealKillerAndGuess(
 
   if (!response.ok) {
     await handleErrorResponse(response, 'Impossibile registrare la rivelazione del killer.')
+  }
+
+  return response.json()
+}
+
+/** The mayor's optional day-time reveal: a one-way switch announcing who currently holds the card. */
+export async function revealMayor(code: string, masterToken: string): Promise<MasterGameState> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/game/mayor-reveal`, {
+    method: 'POST',
+    headers: { 'X-Master-Token': masterToken },
+  })
+
+  if (!response.ok) {
+    await handleErrorResponse(response, 'Impossibile registrare la rivelazione del sindaco.')
+  }
+
+  return response.json()
+}
+
+/** Resolves a pending mayor succession: the dead mayor hands their card to successorPlayerId. */
+export async function assignMayorSuccessor(
+  code: string,
+  masterToken: string,
+  successorPlayerId: number,
+): Promise<MasterGameState> {
+  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/game/mayor-succession`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Master-Token': masterToken,
+    },
+    body: JSON.stringify({ successorPlayerId }),
+  })
+
+  if (!response.ok) {
+    await handleErrorResponse(response, 'Impossibile registrare il nuovo sindaco.')
   }
 
   return response.json()

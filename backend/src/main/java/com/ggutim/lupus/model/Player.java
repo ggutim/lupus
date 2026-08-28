@@ -70,6 +70,29 @@ public class Player {
     private boolean killerRevealUsed = false;
 
     /**
+     * Whether this player currently holds the mayor status — tracked
+     * orthogonally to {@link #role}, not as a {@link Role} value itself,
+     * because a mayor's successor (see {@code GameService#assignMayorSuccessor})
+     * keeps whatever role they already had. At most one player in a room
+     * has this {@code true} at a time: the initial holder is whoever was
+     * dealt {@link Role#MAYOR}, transferred by {@code GameService} to a
+     * successor when they die. Never reset to {@code false} except by
+     * that transfer.
+     */
+    @Column(nullable = false)
+    private boolean mayor = false;
+
+    /**
+     * One-way switch for whether the current mayor (see {@link #mayor})
+     * has announced themselves to the table. Meaningless when {@link
+     * #mayor} is {@code false}. Reset to {@code false} whenever the
+     * mayor status transfers to a new holder — the new mayor starts
+     * unrevealed, same as the first.
+     */
+    @Column(nullable = false)
+    private boolean mayorRevealed = false;
+
+    /**
      * Extra lives beyond the usual single life, e.g. the survivor's
      * (see {@link Role#getStartingExtraLives()}). Consulted only by
      * whichever kill mechanic cares — today, the werewolves' — not a
@@ -152,6 +175,22 @@ public class Player {
 
     public void setKillerRevealUsed(boolean killerRevealUsed) {
         this.killerRevealUsed = killerRevealUsed;
+    }
+
+    public boolean isMayor() {
+        return mayor;
+    }
+
+    public void setMayor(boolean mayor) {
+        this.mayor = mayor;
+    }
+
+    public boolean isMayorRevealed() {
+        return mayorRevealed;
+    }
+
+    public void setMayorRevealed(boolean mayorRevealed) {
+        this.mayorRevealed = mayorRevealed;
     }
 
     public int getExtraLives() {

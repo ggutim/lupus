@@ -59,7 +59,7 @@ class RoomControllerTest {
         var result = mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":0,"killerCount":0,"remoteJoin":true,"manualRoles":false}
+                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":0,"killerCount":0,"mayorCount":0,"remoteJoin":true,"manualRoles":false}
                         """)
                 .assertThat()
                 .hasStatus(201);
@@ -76,7 +76,7 @@ class RoomControllerTest {
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":3,"werewolfCount":1,"priestCount":0,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":0,"killerCount":0,"remoteJoin":true,"manualRoles":false}
+                        {"gameMode":"CLASSIC","playerCount":3,"werewolfCount":1,"priestCount":0,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":0,"killerCount":0,"mayorCount":0,"remoteJoin":true,"manualRoles":false}
                         """)
                 .assertThat()
                 .hasStatus(400);
@@ -91,7 +91,7 @@ class RoomControllerTest {
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":4,"werewolfCount":1,"priestCount":0,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":0,"killerCount":0,"remoteJoin":true,"manualRoles":false}
+                        {"gameMode":"CLASSIC","playerCount":4,"werewolfCount":1,"priestCount":0,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":0,"killerCount":0,"mayorCount":0,"remoteJoin":true,"manualRoles":false}
                         """)
                 .assertThat()
                 .hasStatus(201);
@@ -102,7 +102,7 @@ class RoomControllerTest {
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":2,"survivorCount":0,"guardianCount":0,"killerCount":0,"remoteJoin":true,"manualRoles":false}
+                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":2,"survivorCount":0,"guardianCount":0,"killerCount":0,"mayorCount":0,"remoteJoin":true,"manualRoles":false}
                         """)
                 .assertThat()
                 .hasStatus(400);
@@ -113,7 +113,7 @@ class RoomControllerTest {
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":2,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":0,"killerCount":0,"remoteJoin":true,"manualRoles":false}
+                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":2,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":0,"killerCount":0,"mayorCount":0,"remoteJoin":true,"manualRoles":false}
                         """)
                 .assertThat()
                 .hasStatus(400);
@@ -124,7 +124,7 @@ class RoomControllerTest {
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":2,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":0,"killerCount":0,"remoteJoin":true,"manualRoles":false}
+                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":2,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":0,"killerCount":0,"mayorCount":0,"remoteJoin":true,"manualRoles":false}
                         """)
                 .assertThat()
                 .hasStatus(400);
@@ -135,7 +135,7 @@ class RoomControllerTest {
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":2,"killerCount":0,"remoteJoin":true,"manualRoles":false}
+                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":2,"killerCount":0,"mayorCount":0,"remoteJoin":true,"manualRoles":false}
                         """)
                 .assertThat()
                 .hasStatus(400);
@@ -146,7 +146,18 @@ class RoomControllerTest {
         mvc.post().uri("/api/rooms")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
-                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":0,"killerCount":2,"remoteJoin":true,"manualRoles":false}
+                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":0,"killerCount":2,"mayorCount":0,"remoteJoin":true,"manualRoles":false}
+                        """)
+                .assertThat()
+                .hasStatus(400);
+    }
+
+    @Test
+    void createRoom_rejectsMoreThanOneMayor() {
+        mvc.post().uri("/api/rooms")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"gameMode":"CLASSIC","playerCount":10,"werewolfCount":3,"priestCount":1,"gravediggerCount":0,"idiotCount":0,"corruptedJudgeCount":0,"survivorCount":0,"guardianCount":0,"killerCount":0,"mayorCount":2,"remoteJoin":true,"manualRoles":false}
                         """)
                 .assertThat()
                 .hasStatus(400);

@@ -3,6 +3,7 @@ package com.ggutim.lupus.web;
 import com.ggutim.lupus.dto.KillerGuessRequest;
 import com.ggutim.lupus.dto.KillerGuessResponse;
 import com.ggutim.lupus.dto.MasterGameStateResponse;
+import com.ggutim.lupus.dto.MayorSuccessionRequest;
 import com.ggutim.lupus.dto.SelectTargetRequest;
 import jakarta.validation.Valid;
 import com.ggutim.lupus.service.GameService;
@@ -69,5 +70,21 @@ public class GameController {
             @Valid @RequestBody KillerGuessRequest request) {
         return ResponseEntity.ok(gameService.revealKillerAndGuess(code.toUpperCase(), masterToken,
                 request.targetPlayerId(), request.guessedRole()));
+    }
+
+    @PostMapping("/mayor-reveal")
+    public ResponseEntity<MasterGameStateResponse> revealMayor(
+            @PathVariable String code,
+            @RequestHeader(value = "X-Master-Token", required = false) String masterToken) {
+        return ResponseEntity.ok(gameService.revealMayor(code.toUpperCase(), masterToken));
+    }
+
+    @PostMapping("/mayor-succession")
+    public ResponseEntity<MasterGameStateResponse> assignMayorSuccessor(
+            @PathVariable String code,
+            @RequestHeader(value = "X-Master-Token", required = false) String masterToken,
+            @Valid @RequestBody MayorSuccessionRequest request) {
+        return ResponseEntity.ok(gameService.assignMayorSuccessor(code.toUpperCase(), masterToken,
+                request.successorPlayerId()));
     }
 }

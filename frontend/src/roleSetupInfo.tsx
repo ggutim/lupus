@@ -6,6 +6,7 @@ import {
   GuardianIcon,
   IdiotIcon,
   KillerIcon,
+  MayorIcon,
   PriestIcon,
   SurvivorIcon,
   VillagerIcon,
@@ -67,5 +68,10 @@ export const ROLE_SETUP_INFO: Record<AssignableRole, { icon: ReactNode; descript
     icon: <KillerIcon />,
     description:
       'Una volta per partita, di giorno, può scoprirsi davanti a tutti e indovinare il ruolo esatto di un altro giocatore. Se indovina, quel giocatore muore — anche se protetto o sopravvissuto. Se sbaglia, muore lui. Vince insieme ai lupi mannari.',
+  },
+  MAYOR: {
+    icon: <MayorIcon />,
+    description:
+      'In qualsiasi momento del giorno può scoprirsi davanti a tutti: da quel momento il suo voto conta doppio. Se muore, sceglie a chi lasciare la carica — quel giocatore diventa sindaco pur mantenendo il proprio ruolo.',
   },
 }

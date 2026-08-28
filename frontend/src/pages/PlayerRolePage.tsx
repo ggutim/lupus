@@ -14,6 +14,7 @@ import {
   GuardianIcon,
   IdiotIcon,
   KillerIcon,
+  MayorIcon,
   MeepleIcon,
   PriestIcon,
   SkullIcon,
@@ -72,6 +73,11 @@ const ROLE_INFO: Record<Role, { description: string; icon: ReactNode }> = {
     description:
       'Una volta per partita, di giorno, puoi scoprirti davanti a tutti e indovinare il ruolo esatto di un altro giocatore. Se indovini, muore lui; se sbagli, muori tu.',
     icon: <KillerIcon />,
+  },
+  MAYOR: {
+    description:
+      'In qualsiasi momento del giorno puoi scoprirti davanti a tutti: da quel momento il tuo voto conta doppio. Se muori, scegli a chi lasciare la carica.',
+    icon: <MayorIcon />,
   },
 }
 
@@ -185,6 +191,9 @@ function PlayerRolePage() {
 
       {revealed ? (
         <>
+          {status.mayor && status.role !== 'MAYOR' && (
+            <p className="role-reveal-hint">Sei diventato anche sindaco: il tuo voto ora conta doppio.</p>
+          )}
           <p className="role-reveal-hint">Tocca di nuovo per nascondere il ruolo.</p>
           <p className="role-reveal-hint">Non mostrare lo schermo agli altri giocatori.</p>
         </>

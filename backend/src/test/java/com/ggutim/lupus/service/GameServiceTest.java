@@ -468,6 +468,42 @@ class GameServiceTest {
     }
 
     @Test
+    void revealKillerAndGuess_setsPendingMayorSuccessionWhenTargetWasMayor() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player killer = player(room, "KILLER", Role.KILLER, true);
+        Player target = player(room, "MAYOR", Role.MAYOR, true);
+        target.setMayor(true);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
+        when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
+
+        KillerGuessResponse response =
+                gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, target.getId(), Role.MAYOR);
+
+        assertThat(response.gameState().pendingMayorSuccessionPlayerId()).isEqualTo(target.getId());
+    }
+
+    @Test
+    void revealKillerAndGuess_doesNotSetPendingMayorSuccessionWhenGameEnds() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player killer = player(room, "KILLER", Role.KILLER, true);
+        Player target = player(room, "MAYOR", Role.MAYOR, true);
+        target.setMayor(true);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
+        when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.of(Alignment.GOOD));
+
+        KillerGuessResponse response =
+                gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, target.getId(), Role.MAYOR);
+
+        assertThat(response.gameState().pendingMayorSuccessionPlayerId()).isNull();
+        verify(playerRepository, never()).findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId());
+    }
+
+    @Test
     void revealKillerAndGuess_endsGameWhenWinConditionMet() {
         Room room = startedRoom(GamePhase.DISCUSSION);
         Player killer = player(room, "KILLER", Role.KILLER, true);
@@ -482,6 +518,112 @@ class GameServiceTest {
 
         assertThat(response.gameState().phase()).isEqualTo(GamePhase.GAME_OVER);
         assertThat(response.gameState().winner()).isEqualTo(Alignment.EVIL);
+    }
+
+    // ---------- revealMayor ----------
+
+    @Test
+    void revealMayor_rejectsDuringNight() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
+        mockMasterRoom(room);
+
+        assertThatThrownBy(() -> gameService().revealMayor(CODE, MASTER_TOKEN))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void revealMayor_rejectsWhenRoomHasNoMayor() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player villager = player(room, "V1", Role.VILLAGER, true);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(villager));
+
+        assertThatThrownBy(() -> gameService().revealMayor(CODE, MASTER_TOKEN))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void revealMayor_rejectsWhenMayorIsDead() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player mayor = player(room, "MAYOR", Role.MAYOR, false);
+        mayor.setMayor(true);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(mayor));
+
+        assertThatThrownBy(() -> gameService().revealMayor(CODE, MASTER_TOKEN))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void revealMayor_rejectsWhenAlreadyRevealed() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player mayor = player(room, "MAYOR", Role.MAYOR, true);
+        mayor.setMayor(true);
+        mayor.setMayorRevealed(true);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(mayor));
+
+        assertThatThrownBy(() -> gameService().revealMayor(CODE, MASTER_TOKEN))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void revealMayor_marksMayorAsRevealed() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player mayor = player(room, "MAYOR", Role.MAYOR, true);
+        mayor.setMayor(true);
+        mockMasterRoom(room);
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(mayor));
+
+        gameService().revealMayor(CODE, MASTER_TOKEN);
+
+        assertThat(mayor.isMayorRevealed()).isTrue();
+    }
+
+    // ---------- assignMayorSuccessor ----------
+
+    @Test
+    void assignMayorSuccessor_rejectsWhenNoPendingSuccession() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        mockMasterRoom(room);
+
+        assertThatThrownBy(() -> gameService().assignMayorSuccessor(CODE, MASTER_TOKEN, 1L))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void assignMayorSuccessor_rejectsDeadSuccessor() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player deadMayor = player(room, "MAYOR", Role.MAYOR, false);
+        Player successor = player(room, "V1", Role.VILLAGER, false);
+        room.setPendingMayorSuccessionPlayerId(deadMayor.getId());
+        mockMasterRoom(room);
+        when(playerRepository.findById(successor.getId())).thenReturn(Optional.of(successor));
+
+        assertThatThrownBy(() -> gameService().assignMayorSuccessor(CODE, MASTER_TOKEN, successor.getId()))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void assignMayorSuccessor_transfersMayorStatusToSuccessorKeepingTheirOwnRole() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player deadMayor = player(room, "MAYOR", Role.MAYOR, false);
+        deadMayor.setMayor(true);
+        deadMayor.setMayorRevealed(true);
+        Player successor = player(room, "WOLF", Role.WEREWOLF, true);
+        room.setPendingMayorSuccessionPlayerId(deadMayor.getId());
+        mockMasterRoom(room);
+        when(playerRepository.findById(deadMayor.getId())).thenReturn(Optional.of(deadMayor));
+        when(playerRepository.findById(successor.getId())).thenReturn(Optional.of(successor));
+
+        MasterGameStateResponse result = gameService().assignMayorSuccessor(CODE, MASTER_TOKEN, successor.getId());
+
+        assertThat(deadMayor.isMayor()).isFalse();
+        assertThat(successor.isMayor()).isTrue();
+        assertThat(successor.isMayorRevealed()).isFalse();
+        assertThat(successor.getRole()).isEqualTo(Role.WEREWOLF);
+        assertThat(room.getPendingMayorSuccessionPlayerId()).isNull();
+        assertThat(result.pendingMayorSuccessionPlayerId()).isNull();
     }
 
     // ---------- advancePhase: skeleton phase sequencing ----------
@@ -647,6 +789,56 @@ class GameServiceTest {
                 .isInstanceOf(InvalidGamePhaseException.class);
     }
 
+    @Test
+    void advancePhase_rejectsWhenPendingMayorSuccession() {
+        Room room = startedRoom(GamePhase.MORNING_REVEAL);
+        room.setPendingMayorSuccessionPlayerId(5L);
+        mockMasterRoom(room);
+
+        assertThatThrownBy(() -> gameService().advancePhase(CODE, MASTER_TOKEN))
+                .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void advancePhase_setsPendingMayorSuccessionWhenNightKillVictimWasMayor() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
+        room.setCurrentNightRole(Role.WEREWOLF);
+        room.setCurrentNightStepKind(NightStepKind.SELECT);
+        Player mayor = player(room, "MAYOR", Role.MAYOR, true);
+        mayor.setMayor(true);
+        Player other = player(room, "V1", Role.VILLAGER, true);
+        mockMasterRoom(room);
+        when(nightEngine.nextRole(room, Role.WEREWOLF)).thenReturn(Optional.empty());
+        when(nightEngine.resolveDeferredKillsAndClearState(room)).thenReturn(List.of(mayor.getId()));
+        when(playerRepository.findById(mayor.getId())).thenReturn(Optional.of(mayor));
+        when(playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(other));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
+
+        MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
+
+        assertThat(result.pendingMayorSuccessionPlayerId()).isEqualTo(mayor.getId());
+        assertThat(result.phase()).isEqualTo(GamePhase.MORNING_REVEAL);
+    }
+
+    @Test
+    void advancePhase_skipsMayorSuccessionWhenNoOtherPlayerIsAlive() {
+        Room room = startedRoom(GamePhase.NIGHT_ACTIONS);
+        room.setCurrentNightRole(Role.WEREWOLF);
+        room.setCurrentNightStepKind(NightStepKind.SELECT);
+        Player mayor = player(room, "MAYOR", Role.MAYOR, true);
+        mayor.setMayor(true);
+        mockMasterRoom(room);
+        when(nightEngine.nextRole(room, Role.WEREWOLF)).thenReturn(Optional.empty());
+        when(nightEngine.resolveDeferredKillsAndClearState(room)).thenReturn(List.of(mayor.getId()));
+        when(playerRepository.findById(mayor.getId())).thenReturn(Optional.of(mayor));
+        when(playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId())).thenReturn(List.of());
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
+
+        MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
+
+        assertThat(result.pendingMayorSuccessionPlayerId()).isNull();
+    }
+
     // ---------- advancePhase: vote resolution ----------
 
     @Test
@@ -749,6 +941,24 @@ class GameServiceTest {
         gameService().advancePhase(CODE, MASTER_TOKEN);
 
         assertThat(room.isNoOneVotedOutPreviousDay()).isTrue();
+    }
+
+    @Test
+    void advancePhase_setsPendingMayorSuccessionWhenVoteVictimWasMayor() {
+        Room room = startedRoom(GamePhase.VOTE_SELECT_TARGET);
+        Player mayor = player(room, "MAYOR", Role.MAYOR, true);
+        mayor.setMayor(true);
+        Player other = player(room, "V1", Role.VILLAGER, true);
+        room.setPendingVoteVictimId(mayor.getId());
+        mockMasterRoom(room);
+        when(playerRepository.findById(mayor.getId())).thenReturn(Optional.of(mayor));
+        when(playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(other));
+        when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
+
+        MasterGameStateResponse result = gameService().advancePhase(CODE, MASTER_TOKEN);
+
+        assertThat(result.pendingMayorSuccessionPlayerId()).isEqualTo(mayor.getId());
+        assertThat(result.phase()).isEqualTo(GamePhase.NIGHT_START);
     }
 
     @Test

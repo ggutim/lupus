@@ -68,6 +68,9 @@ public class RoleAssigner {
     void assignRole(Player player, Role role) {
         player.setRole(role);
         player.setExtraLives(role.getStartingExtraLives());
+        if (role == Role.MAYOR) {
+            player.setMayor(true);
+        }
     }
 
     /**

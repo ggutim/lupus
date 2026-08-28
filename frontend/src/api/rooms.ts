@@ -12,6 +12,7 @@ export type Role =
   | 'ANGEL'
   | 'GUARDIAN'
   | 'KILLER'
+  | 'MAYOR'
 
 export type RoleCounts = Record<Role, number>
 
@@ -28,6 +29,7 @@ export interface CreateRoomRequest {
   survivorCount: number
   guardianCount: number
   killerCount: number
+  mayorCount: number
   remoteJoin: boolean
   manualRoles: boolean
 }
@@ -154,6 +156,8 @@ export async function joinRoom(code: string, nickname: string): Promise<JoinRoom
 export interface PlayerRoleState {
   role: Role
   alive: boolean
+  /** Whether this player currently holds the mayor status — always visible to them, whatever their role. */
+  mayor: boolean
 }
 
 export interface VillagePlayer {

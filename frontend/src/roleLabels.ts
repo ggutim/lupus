@@ -12,4 +12,5 @@ export const ROLE_LABELS: Record<Role, string> = {
   ANGEL: 'Angelo',
   GUARDIAN: 'Guardiano',
   KILLER: 'Killer',
+  MAYOR: 'Sindaco',
 }

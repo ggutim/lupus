@@ -30,6 +30,7 @@ function CreateRoomPage() {
   const [survivorCount, setSurvivorCount] = useState(0)
   const [guardianCount, setGuardianCount] = useState(0)
   const [killerCount, setKillerCount] = useState(0)
+  const [mayorCount, setMayorCount] = useState(0)
   const [otherRolesOpen, setOtherRolesOpen] = useState(false)
   const [modeInfoOpen, setModeInfoOpen] = useState(false)
   const [infoRole, setInfoRole] = useState<AssignableRole | null>(null)
@@ -53,7 +54,7 @@ function CreateRoomPage() {
       ]
 
   const otherRolesCount =
-    gravediggerCount + idiotCount + corruptedJudgeCount + survivorCount + guardianCount + killerCount
+    gravediggerCount + idiotCount + corruptedJudgeCount + survivorCount + guardianCount + killerCount + mayorCount
   const specialRoleCount = werewolfCount + priestCount + otherRolesCount
   const villagerCount = Math.max(playerCount - specialRoleCount, 0)
   const rolesExceedPlayers = specialRoleCount > playerCount
@@ -73,6 +74,7 @@ function CreateRoomPage() {
         survivorCount,
         guardianCount,
         killerCount,
+        mayorCount,
         remoteJoin,
         manualRoles,
       })
@@ -322,6 +324,16 @@ function CreateRoomPage() {
                   max={1}
                   onChange={setKillerCount}
                   onInfoClick={() => setInfoRole('KILLER')}
+                />
+                <RoleCard
+                  icon={ROLE_SETUP_INFO.MAYOR.icon}
+                  label="Sindaco"
+                  align={ROLE_ALIGNMENT.MAYOR}
+                  count={mayorCount}
+                  min={0}
+                  max={1}
+                  onChange={setMayorCount}
+                  onInfoClick={() => setInfoRole('MAYOR')}
                 />
               </div>
             </details>

@@ -14,12 +14,17 @@ import com.ggutim.lupus.model.Role;
  * true once an angel has protected this player while cursed.
  * {@code killerRevealUsed} is only meaningful for the killer: whether
  * they've already used their once-per-game reveal-and-guess power.
+ * {@code mayor} is true for whoever currently holds the mayor status
+ * (see {@link com.ggutim.lupus.model.Player#isMayor()}) — orthogonal to
+ * {@code role}, since a mayor's successor keeps their own role.
+ * {@code mayorRevealed} is only meaningful when {@code mayor} is true.
  */
 public record MasterPlayerView(Long id, String nickname, boolean alive, Role role, Role originalRole,
-        boolean protectionBlocked, boolean killerRevealUsed) {
+        boolean protectionBlocked, boolean killerRevealUsed, boolean mayor, boolean mayorRevealed) {
 
     public static MasterPlayerView from(Player player) {
         return new MasterPlayerView(player.getId(), player.getNickname(), player.isAlive(), player.getRole(),
-                player.getOriginalRole(), player.isProtectionBlocked(), player.isKillerRevealUsed());
+                player.getOriginalRole(), player.isProtectionBlocked(), player.isKillerRevealUsed(),
+                player.isMayor(), player.isMayorRevealed());
     }
 }

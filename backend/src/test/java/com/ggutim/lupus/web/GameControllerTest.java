@@ -37,7 +37,13 @@ class GameControllerTest {
     private MasterGameStateResponse state(GamePhase phase) {
         return new MasterGameStateResponse(
                 "ABCD", phase, 1, List.of(), null, null, null, null, null, false, null, null, null, null, null,
-                true);
+                true, null);
+    }
+
+    private MasterGameStateResponse stateWithPendingMayorSuccession(GamePhase phase, Long pendingMayorSuccessionPlayerId) {
+        return new MasterGameStateResponse(
+                "ABCD", phase, 1, List.of(), null, null, null, null, null, false, null, null, null, null, null,
+                true, pendingMayorSuccessionPlayerId);
     }
 
     @Test
@@ -159,6 +165,59 @@ class GameControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .content("""
                         {"targetPlayerId":7,"guessedRole":"PRIEST"}
+                        """)
+                .assertThat()
+                .hasStatus(409);
+    }
+
+    @Test
+    void revealMayor_returnsUpdatedState() {
+        when(gameService.revealMayor(eq("ABCD"), eq("secret-token")))
+                .thenReturn(state(GamePhase.DISCUSSION));
+
+        mvc.post().uri("/api/rooms/ABCD/game/mayor-reveal")
+                .header("X-Master-Token", "secret-token")
+                .assertThat()
+                .hasStatusOk();
+    }
+
+    @Test
+    void revealMayor_returnsConflictWhenNotAllowedRightNow() {
+        doThrow(new InvalidGamePhaseException("nope")).when(gameService).revealMayor(eq("ABCD"), any());
+
+        mvc.post().uri("/api/rooms/ABCD/game/mayor-reveal")
+                .header("X-Master-Token", "secret-token")
+                .assertThat()
+                .hasStatus(409);
+    }
+
+    @Test
+    void assignMayorSuccessor_returnsUpdatedStateWithNoPendingSuccession() {
+        when(gameService.assignMayorSuccessor(eq("ABCD"), eq("secret-token"), eq(7L)))
+                .thenReturn(stateWithPendingMayorSuccession(GamePhase.MORNING_REVEAL, null));
+
+        mvc.post().uri("/api/rooms/ABCD/game/mayor-succession")
+                .header("X-Master-Token", "secret-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"successorPlayerId":7}
+                        """)
+                .assertThat()
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.pendingMayorSuccessionPlayerId").isNull();
+    }
+
+    @Test
+    void assignMayorSuccessor_returnsConflictWhenNoPendingSuccession() {
+        doThrow(new InvalidGamePhaseException("nope")).when(gameService)
+                .assignMayorSuccessor(eq("ABCD"), any(), any());
+
+        mvc.post().uri("/api/rooms/ABCD/game/mayor-succession")
+                .header("X-Master-Token", "secret-token")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("""
+                        {"successorPlayerId":7}
                         """)
                 .assertThat()
                 .hasStatus(409);

@@ -131,6 +131,20 @@ export function KillerIcon(props: IconProps) {
   )
 }
 
+export function MayorIcon(props: IconProps) {
+  return (
+    <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>
+      <path d="M22 30 12 54l10-3 6 9 8-19Z" fill="currentColor" />
+      <path d="M42 30 52 54l-10-3-6 9-8-19Z" fill="currentColor" />
+      <circle cx="32" cy="24" r="16" fill="currentColor" />
+      <path
+        d="M32 15l2.6 6.2 6.7.6-5.1 4.4 1.6 6.5L32 29l-5.8 3.7 1.6-6.5-5.1-4.4 6.7-.6Z"
+        fill="#fff"
+      />
+    </svg>
+  )
+}
+
 export function MeepleIcon(props: IconProps) {
   return (
     <svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg" {...props}>

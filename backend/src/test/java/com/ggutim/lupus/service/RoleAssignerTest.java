@@ -74,6 +74,19 @@ class RoleAssignerTest {
     }
 
     @Test
+    void assign_flagsTheMayorAsMayorAndEveryoneElseNot() {
+        Room room = room(4, Map.of(Role.MAYOR, 1));
+        List<Player> players = players(room, 4);
+
+        roleAssigner().assign(room, players);
+
+        Player mayor = players.stream().filter(p -> p.getRole() == Role.MAYOR).findFirst().orElseThrow();
+        assertThat(mayor.isMayor()).isTrue();
+        players.stream().filter(p -> p.getRole() != Role.MAYOR)
+                .forEach(p -> assertThat(p.isMayor()).isFalse());
+    }
+
+    @Test
     void assign_givesSurvivorsOneExtraLifeAndEveryoneElseNone() {
         Room room = room(4, Map.of(Role.SURVIVOR, 1));
         List<Player> players = players(room, 4);

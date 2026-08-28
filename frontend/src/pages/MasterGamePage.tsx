@@ -2,8 +2,10 @@ import { useCallback, useEffect, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import {
   advancePhase,
+  assignMayorSuccessor,
   getGameState,
   revealKillerAndGuess,
+  revealMayor,
   selectNightTarget,
   selectVoteVictim,
   type Alignment,
@@ -15,6 +17,7 @@ import { ApiError, type Role } from '../api/rooms'
 import { subscribeToGame } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
 import KillerGuessDialog from '../components/KillerGuessDialog'
+import MayorSuccessionDialog from '../components/MayorSuccessionDialog'
 import VillageOverviewDialog from '../components/VillageOverviewDialog'
 import { useDialog } from '../components/useDialog'
 import { useMasterAccess } from '../components/useMasterAccess'
@@ -259,12 +262,21 @@ function buildCard(state: MasterGameState): CardContent {
         title: 'Discussione',
         body: 'Il villaggio discute su chi potrebbe essere un lupo mannaro.',
       }
-    case 'VOTE_SELECT_TARGET':
+    case 'VOTE_SELECT_TARGET': {
+      const mayor = currentMayor(state)
       return {
         icon: <SunIcon />,
         title: 'Chi ha votato il villaggio?',
-        body: 'Seleziona dalla tavola il giocatore votato, oppure avanza se nessuno è stato eliminato.',
+        body: (
+          <>
+            <p>Seleziona dalla tavola il giocatore votato, oppure avanza se nessuno è stato eliminato.</p>
+            {mayor?.mayorRevealed && (
+              <p className="game-card-hint">Il voto di {mayor.nickname} (sindaco) conta doppio.</p>
+            )}
+          </>
+        ),
       }
+    }
     case 'GAME_OVER':
       // winningRole is only ever 'IDIOT' today — if a second solo-win role is
       // added, this should become a small lookup table instead of one check.
@@ -336,18 +348,29 @@ function selectablePlayers(state: MasterGameState): MasterPlayerView[] {
   return alive
 }
 
-/** Day phases where the village is awake, so the killer can reveal — mirrors the backend's KILLER_REVEAL_PHASES. */
-const KILLER_REVEAL_PHASES: GamePhase[] = ['MORNING_REVEAL', 'DISCUSSION', 'VOTE_SELECT_TARGET']
+/** Day phases where the village is awake, so a voluntary reveal can happen — mirrors the backend's DAY_REVEAL_PHASES. */
+const DAY_REVEAL_PHASES: GamePhase[] = ['MORNING_REVEAL', 'DISCUSSION', 'VOTE_SELECT_TARGET']
 
 /** The room's living, not-yet-used killer, if this is a moment they could reveal — null otherwise. */
 function revealableKiller(state: MasterGameState): MasterPlayerView | null {
-  if (!KILLER_REVEAL_PHASES.includes(state.phase)) return null
+  if (!DAY_REVEAL_PHASES.includes(state.phase)) return null
   return state.players.find((player) => player.role === 'KILLER' && player.alive && !player.killerRevealUsed) ?? null
+}
+
+/** The room's living, unrevealed current mayor, if this is a moment they could reveal — null otherwise. */
+function revealableMayor(state: MasterGameState): MasterPlayerView | null {
+  if (!DAY_REVEAL_PHASES.includes(state.phase)) return null
+  return state.players.find((player) => player.mayor && player.alive && !player.mayorRevealed) ?? null
+}
+
+/** The room's living current mayor, revealed or not — for the vote-day reminder banner. */
+function currentMayor(state: MasterGameState): MasterPlayerView | null {
+  return state.players.find((player) => player.mayor && player.alive) ?? null
 }
 
 function MasterGamePage() {
   const { code } = useParams<{ code: string }>()
-  const { showAlert } = useDialog()
+  const { showAlert, showConfirm } = useDialog()
   const { masterToken, handleForbidden } = useMasterAccess(code)
 
   const [state, setState] = useState<MasterGameState | null>(null)
@@ -402,9 +425,10 @@ function MasterGamePage() {
       : []
   const ghostCurseRequired = isGhostCurseTurn ? Math.min(2, selectablePlayers(state).length) : 0
   const canAdvance =
-    isVotePhase ||
-    !nightSelectionRequired ||
-    (isGhostCurseTurn ? selectedIds.length >= ghostCurseRequired : selectedId !== null)
+    state.pendingMayorSuccessionPlayerId === null &&
+    (isVotePhase ||
+      !nightSelectionRequired ||
+      (isGhostCurseTurn ? selectedIds.length >= ghostCurseRequired : selectedId !== null))
 
   const handleSelect = async (playerId: number) => {
     if (!code || !masterToken || busy) return
@@ -455,7 +479,40 @@ function MasterGamePage() {
     }
   }
 
+  const handleMayorReveal = async () => {
+    if (!code || !masterToken || busy) return
+    const confirmed = await showConfirm({
+      title: 'Il sindaco si rivela',
+      message: 'Da questo momento tutti sapranno chi è il sindaco, e il suo voto conterà doppio. Confermi?',
+      confirmLabel: 'Rivela',
+      cancelLabel: 'Annulla',
+    })
+    if (!confirmed) return
+
+    setBusy(true)
+    try {
+      setState(await revealMayor(code, masterToken))
+    } catch (err) {
+      showAlert(err instanceof ApiError ? err.message : 'Impossibile registrare la rivelazione. Riprova.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  const handleMayorSuccession = async (successorPlayerId: number) => {
+    if (!code || !masterToken || busy) return
+    setBusy(true)
+    try {
+      setState(await assignMayorSuccessor(code, masterToken, successorPlayerId))
+    } catch (err) {
+      showAlert(err instanceof ApiError ? err.message : 'Impossibile registrare il nuovo sindaco. Riprova.')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const killer = revealableKiller(state)
+  const mayor = revealableMayor(state)
 
   return (
     <BoardPanel>
@@ -527,6 +584,19 @@ function MasterGamePage() {
         busy={busy}
         targets={killer ? state.players.filter((player) => player.alive && player.id !== killer.id) : []}
         onConfirm={handleKillerGuess}
+      />
+
+      {mayor && (
+        <button type="button" className="mayor-reveal-button" onClick={handleMayorReveal} disabled={busy}>
+          Il sindaco si rivela…
+        </button>
+      )}
+      <MayorSuccessionDialog
+        open={state.pendingMayorSuccessionPlayerId !== null}
+        deadMayorName={playerName(state.players, state.pendingMayorSuccessionPlayerId)}
+        busy={busy}
+        targets={state.players.filter((player) => player.alive)}
+        onConfirm={handleMayorSuccession}
       />
     </BoardPanel>
   )

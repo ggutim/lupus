@@ -27,7 +27,11 @@ import java.util.List;
  * when the target is currently cursed; the true alignment never
  * reaches this DTO in that case. {@code guardianBlockedPlayerId} is
  * set only during the guardian's turn — the player they protected last
- * round, who can't be selected again this round.
+ * round, who can't be selected again this round. {@code
+ * pendingMayorSuccessionPlayerId} is set once the current mayor has
+ * died and at least one other player is still alive to inherit the
+ * card — while non-null, the master must resolve it before advancing
+ * any further (see {@code GameService#assignMayorSuccessor}).
  */
 public record MasterGameStateResponse(
         String code,
@@ -45,7 +49,8 @@ public record MasterGameStateResponse(
         Long pendingVoteVictimId,
         Alignment winner,
         Role winningRole,
-        boolean remoteJoin
+        boolean remoteJoin,
+        Long pendingMayorSuccessionPlayerId
 ) {
 
     /**
@@ -82,6 +87,7 @@ public record MasterGameStateResponse(
                 room.getPendingVoteVictimId(),
                 room.getWinner(),
                 room.getWinningRole(),
-                room.isRemoteJoin());
+                room.isRemoteJoin(),
+                room.getPendingMayorSuccessionPlayerId());
     }
 }
