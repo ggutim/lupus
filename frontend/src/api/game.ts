@@ -1,4 +1,4 @@
-import { ApiError, API_BASE_URL, type Role } from './rooms'
+import { apiFetch, type Role } from './rooms'
 
 export type GamePhase =
   | 'ROLES_ASSIGNED'
@@ -54,43 +54,26 @@ export interface MasterGameState {
   pendingMayorSuccessionPlayerId: number | null
 }
 
-async function handleErrorResponse(response: Response, fallbackMessage: string): Promise<never> {
-  const body = await response.json().catch(() => null)
-  throw new ApiError(response.status, body?.message ?? fallbackMessage, body?.fieldErrors)
-}
-
-export async function getGameState(code: string, masterToken: string): Promise<MasterGameState> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/game`, {
+export function getGameState(code: string, masterToken: string): Promise<MasterGameState> {
+  return apiFetch<MasterGameState>(`/api/rooms/${code}/game`, 'Impossibile recuperare lo stato della partita.', {
     headers: { 'X-Master-Token': masterToken },
   })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile recuperare lo stato della partita.')
-  }
-
-  return response.json()
 }
 
-export async function advancePhase(code: string, masterToken: string): Promise<MasterGameState> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/game/advance`, {
+export function advancePhase(code: string, masterToken: string): Promise<MasterGameState> {
+  return apiFetch<MasterGameState>(`/api/rooms/${code}/game/advance`, 'Impossibile avanzare alla fase successiva.', {
     method: 'POST',
     headers: { 'X-Master-Token': masterToken },
   })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile avanzare alla fase successiva.')
-  }
-
-  return response.json()
 }
 
-async function selectTarget(
+function selectTarget(
   path: string,
   code: string,
   masterToken: string,
   playerId: number | null,
 ): Promise<MasterGameState> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/game/${path}`, {
+  return apiFetch<MasterGameState>(`/api/rooms/${code}/game/${path}`, 'Impossibile registrare la selezione.', {
     method: 'POST',
     headers: {
       'Content-Type': 'application/json',
@@ -98,12 +81,6 @@ async function selectTarget(
     },
     body: JSON.stringify({ playerId }),
   })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile registrare la selezione.')
-  }
-
-  return response.json()
 }
 
 export function selectNightTarget(code: string, masterToken: string, playerId: number): Promise<MasterGameState> {
@@ -124,60 +101,51 @@ export interface KillerGuessResult {
 }
 
 /** The killer's once-per-game power: reveal themselves and guess targetPlayerId's exact role, in one shot. */
-export async function revealKillerAndGuess(
+export function revealKillerAndGuess(
   code: string,
   masterToken: string,
   targetPlayerId: number,
   guessedRole: Role,
 ): Promise<KillerGuessResult> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/game/killer-guess`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Master-Token': masterToken,
+  return apiFetch<KillerGuessResult>(
+    `/api/rooms/${code}/game/killer-guess`,
+    'Impossibile registrare la rivelazione del killer.',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Token': masterToken,
+      },
+      body: JSON.stringify({ targetPlayerId, guessedRole }),
     },
-    body: JSON.stringify({ targetPlayerId, guessedRole }),
-  })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile registrare la rivelazione del killer.')
-  }
-
-  return response.json()
+  )
 }
 
 /** The mayor's optional day-time reveal: a one-way switch announcing who currently holds the card. */
-export async function revealMayor(code: string, masterToken: string): Promise<MasterGameState> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/game/mayor-reveal`, {
-    method: 'POST',
-    headers: { 'X-Master-Token': masterToken },
-  })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile registrare la rivelazione del sindaco.')
-  }
-
-  return response.json()
+export function revealMayor(code: string, masterToken: string): Promise<MasterGameState> {
+  return apiFetch<MasterGameState>(
+    `/api/rooms/${code}/game/mayor-reveal`,
+    'Impossibile registrare la rivelazione del sindaco.',
+    { method: 'POST', headers: { 'X-Master-Token': masterToken } },
+  )
 }
 
 /** Resolves a pending mayor succession: the dead mayor hands their card to successorPlayerId. */
-export async function assignMayorSuccessor(
+export function assignMayorSuccessor(
   code: string,
   masterToken: string,
   successorPlayerId: number,
 ): Promise<MasterGameState> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/game/mayor-succession`, {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'X-Master-Token': masterToken,
+  return apiFetch<MasterGameState>(
+    `/api/rooms/${code}/game/mayor-succession`,
+    'Impossibile registrare il nuovo sindaco.',
+    {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'X-Master-Token': masterToken,
+      },
+      body: JSON.stringify({ successorPlayerId }),
     },
-    body: JSON.stringify({ successorPlayerId }),
-  })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile registrare il nuovo sindaco.')
-  }
-
-  return response.json()
+  )
 }

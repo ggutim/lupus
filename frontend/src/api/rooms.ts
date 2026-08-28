@@ -97,30 +97,41 @@ async function handleErrorResponse(response: Response, fallbackMessage: string):
   throw new ApiError(response.status, body?.message ?? fallbackMessage, body?.fieldErrors)
 }
 
-export async function createRoom(request: CreateRoomRequest): Promise<Room> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms`, {
+/**
+ * Shared `fetch → check status → parse JSON` shape every API call in
+ * this module and `api/game.ts` follows. `path` is relative to {@link
+ * API_BASE_URL}; `fallbackMessage` is shown when the error response
+ * carries no message of its own. Use {@link apiFetchVoid} for
+ * endpoints with no response body (a 200/204 with nothing to parse).
+ */
+export async function apiFetch<T>(path: string, fallbackMessage: string, init?: RequestInit): Promise<T> {
+  const response = await fetch(`${API_BASE_URL}${path}`, init)
+  if (!response.ok) {
+    await handleErrorResponse(response, fallbackMessage)
+  }
+  return response.json()
+}
+
+/** Like {@link apiFetch}, for endpoints whose success response has no body worth parsing. */
+export async function apiFetchVoid(path: string, fallbackMessage: string, init?: RequestInit): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}${path}`, init)
+  if (!response.ok) {
+    await handleErrorResponse(response, fallbackMessage)
+  }
+}
+
+export function createRoom(request: CreateRoomRequest): Promise<Room> {
+  return apiFetch<Room>('/api/rooms', 'Impossibile creare la stanza. Riprova.', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(request),
   })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile creare la stanza. Riprova.')
-  }
-
-  return response.json()
 }
 
-export async function getRoomState(code: string, masterToken: string): Promise<RoomState> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}`, {
+export function getRoomState(code: string, masterToken: string): Promise<RoomState> {
+  return apiFetch<RoomState>(`/api/rooms/${code}`, 'Impossibile trovare la stanza.', {
     headers: { 'X-Master-Token': masterToken },
   })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile trovare la stanza.')
-  }
-
-  return response.json()
 }
 
 /**
@@ -129,28 +140,16 @@ export async function getRoomState(code: string, masterToken: string): Promise<R
  * (has the game started?) whenever its WebSocket connects or
  * reconnects, in case a push was missed. Used by `subscribeToRoom`.
  */
-export async function getPublicRoomState(code: string): Promise<RoomState> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/status`)
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile trovare la stanza.')
-  }
-
-  return response.json()
+export function getPublicRoomState(code: string): Promise<RoomState> {
+  return apiFetch<RoomState>(`/api/rooms/${code}/status`, 'Impossibile trovare la stanza.')
 }
 
-export async function joinRoom(code: string, nickname: string): Promise<JoinRoomResponse> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/players`, {
+export function joinRoom(code: string, nickname: string): Promise<JoinRoomResponse> {
+  return apiFetch<JoinRoomResponse>(`/api/rooms/${code}/players`, 'Impossibile unirsi alla stanza. Riprova.', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ nickname }),
   })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile unirsi alla stanza. Riprova.')
-  }
-
-  return response.json()
 }
 
 export interface PlayerRoleState {
@@ -171,77 +170,48 @@ export interface VillagePlayer {
 }
 
 export async function getVillageOverview(code: string): Promise<VillagePlayer[]> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/village`)
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile recuperare lo stato del villaggio.')
-  }
-
-  const body = await response.json()
+  const body = await apiFetch<{ players: VillagePlayer[] }>(
+    `/api/rooms/${code}/village`,
+    'Impossibile recuperare lo stato del villaggio.',
+  )
   return body.players
 }
 
-export async function getPlayerRole(code: string, playerId: number, playerToken: string): Promise<PlayerRoleState> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/players/${playerId}/role`, {
+export function getPlayerRole(code: string, playerId: number, playerToken: string): Promise<PlayerRoleState> {
+  return apiFetch<PlayerRoleState>(`/api/rooms/${code}/players/${playerId}/role`, 'Impossibile recuperare il tuo ruolo.', {
     headers: { 'X-Player-Token': playerToken },
   })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile recuperare il tuo ruolo.')
-  }
-
-  return response.json()
 }
 
-export async function addPlayerManually(
+export function addPlayerManually(
   code: string,
   masterToken: string,
   nickname: string,
   role?: Role,
 ): Promise<ManualPlayer> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/players/manual`, {
+  return apiFetch<ManualPlayer>(`/api/rooms/${code}/players/manual`, 'Impossibile aggiungere il giocatore. Riprova.', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json', 'X-Master-Token': masterToken },
     body: JSON.stringify({ nickname, role: role ?? null }),
   })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile aggiungere il giocatore. Riprova.')
-  }
-
-  return response.json()
 }
 
-export async function getRoomRoster(code: string, masterToken: string): Promise<MasterRoomState> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/roster`, {
+export function getRoomRoster(code: string, masterToken: string): Promise<MasterRoomState> {
+  return apiFetch<MasterRoomState>(`/api/rooms/${code}/roster`, 'Impossibile trovare la stanza.', {
     headers: { 'X-Master-Token': masterToken },
   })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile trovare la stanza.')
-  }
-
-  return response.json()
 }
 
-export async function kickPlayer(code: string, playerId: number, masterToken: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/players/${playerId}`, {
+export function kickPlayer(code: string, playerId: number, masterToken: string): Promise<void> {
+  return apiFetchVoid(`/api/rooms/${code}/players/${playerId}`, 'Impossibile rimuovere il giocatore. Riprova.', {
     method: 'DELETE',
     headers: { 'X-Master-Token': masterToken },
   })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile rimuovere il giocatore. Riprova.')
-  }
 }
 
-export async function startGame(code: string, masterToken: string): Promise<void> {
-  const response = await fetch(`${API_BASE_URL}/api/rooms/${code}/start`, {
+export function startGame(code: string, masterToken: string): Promise<void> {
+  return apiFetchVoid(`/api/rooms/${code}/start`, 'Impossibile avviare la partita. Riprova.', {
     method: 'POST',
     headers: { 'X-Master-Token': masterToken },
   })
-
-  if (!response.ok) {
-    await handleErrorResponse(response, 'Impossibile avviare la partita. Riprova.')
-  }
 }

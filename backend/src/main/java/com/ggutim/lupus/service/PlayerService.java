@@ -144,8 +144,7 @@ public class PlayerService {
             throw new RoomAlreadyStartedException(code);
         }
 
-        Player player = playerRepository.findById(playerId)
-                .filter(p -> p.getRoom().getId().equals(room.getId()))
+        Player player = playerRepository.findByIdAndRoomId(playerId, room.getId())
                 .orElseThrow(() -> new PlayerNotFoundException(playerId));
 
         playerRepository.delete(player);
@@ -193,8 +192,7 @@ public class PlayerService {
         Room room = roomRepository.findByCode(code)
                 .orElseThrow(() -> new RoomNotFoundException(code));
 
-        Player player = playerRepository.findById(playerId)
-                .filter(p -> p.getRoom().getId().equals(room.getId()))
+        Player player = playerRepository.findByIdAndRoomId(playerId, room.getId())
                 .orElseThrow(() -> new PlayerNotFoundException(playerId));
 
         if (playerToken == null || !player.hasPlayerToken(playerToken)) {

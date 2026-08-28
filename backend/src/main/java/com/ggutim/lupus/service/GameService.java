@@ -175,7 +175,7 @@ public class GameService {
             Role guessedRole) {
         Room room = roomService.findRoomForMaster(code, masterToken);
         ensureGameStarted(room);
-        requireKillerRevealPhase(room);
+        requireDayRevealPhase(room, "killer");
 
         Player killer = requireAliveKillerWithUnusedReveal(room);
         Player target = requireAlivePlayerInRoom(room, targetPlayerId);
@@ -208,13 +208,6 @@ public class GameService {
         return new KillerGuessResponse(correct, buildMasterGameState(room));
     }
 
-    private void requireKillerRevealPhase(Room room) {
-        if (!DAY_REVEAL_PHASES.contains(room.getPhase())) {
-            throw new InvalidGamePhaseException(
-                    "The killer can only reveal while the village is awake during the day");
-        }
-    }
-
     /**
      * The mayor's optional day-time reveal: a one-way switch announcing
      * to the table who currently holds the mayor status. There's no
@@ -226,7 +219,7 @@ public class GameService {
     public MasterGameStateResponse revealMayor(String code, String masterToken) {
         Room room = roomService.findRoomForMaster(code, masterToken);
         ensureGameStarted(room);
-        requireMayorRevealPhase(room);
+        requireDayRevealPhase(room, "mayor");
 
         Player mayor = requireAliveUnrevealedMayor(room);
         mayor.setMayorRevealed(true);
@@ -256,6 +249,9 @@ public class GameService {
         if (deadMayorId == null) {
             throw new InvalidGamePhaseException("There is no pending mayor succession");
         }
+        if (successorPlayerId.equals(deadMayorId)) {
+            throw new InvalidGamePhaseException("The mayor cannot name themselves as their own successor");
+        }
 
         Player successor = requireAlivePlayerInRoom(room, successorPlayerId);
         Player deadMayor = playerRepository.findById(deadMayorId)
@@ -274,17 +270,16 @@ public class GameService {
         return buildMasterGameState(room);
     }
 
-    private void requireMayorRevealPhase(Room room) {
+    /** Shared gate for every voluntary day-time reveal — the killer's and the mayor's. */
+    private void requireDayRevealPhase(Room room, String actorLabel) {
         if (!DAY_REVEAL_PHASES.contains(room.getPhase())) {
             throw new InvalidGamePhaseException(
-                    "The mayor can only reveal while the village is awake during the day");
+                    "The " + actorLabel + " can only reveal while the village is awake during the day");
         }
     }
 
     private Player requireAliveUnrevealedMayor(Room room) {
-        Player mayor = playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId()).stream()
-                .filter(Player::isMayor)
-                .findFirst()
+        Player mayor = playerRepository.findFirstByRoomIdAndMayorTrue(room.getId())
                 .orElseThrow(() -> new InvalidGamePhaseException("This room has no mayor"));
 
         if (!mayor.isAlive()) {
@@ -304,6 +299,13 @@ public class GameService {
      * #assignMayorSuccessor}. Called after every kill site's win-check,
      * only when the game didn't just end (a dead room has nobody left to
      * hand a card to, and nothing left to block).
+     *
+     * <p>Stops at the first mayor found among {@code victimIds} — safe
+     * only because at most one player in a room ever holds the mayor
+     * status at a time, itself only true because {@code
+     * CreateRoomRequest.mayorCount} is capped at 1 ({@code @Max(1)}).
+     * If that cap is ever relaxed, this needs to handle multiple
+     * simultaneous mayor deaths instead of silently dropping the rest.
      */
     private void handlePotentialMayorSuccession(Room room, List<Long> victimIds) {
         for (Long victimId : victimIds) {
@@ -322,9 +324,7 @@ public class GameService {
     }
 
     private Player requireAliveKillerWithUnusedReveal(Room room) {
-        Player killer = playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId()).stream()
-                .filter(player -> player.getRole() == Role.KILLER)
-                .findFirst()
+        Player killer = playerRepository.findFirstByRoomIdAndRole(room.getId(), Role.KILLER)
                 .orElseThrow(() -> new InvalidGamePhaseException("This room has no killer"));
 
         if (!killer.isAlive()) {
@@ -481,8 +481,7 @@ public class GameService {
     }
 
     private Player requireAlivePlayerInRoom(Room room, Long playerId) {
-        Player player = playerRepository.findById(playerId)
-                .filter(p -> p.getRoom().getId().equals(room.getId()))
+        Player player = playerRepository.findByIdAndRoomId(playerId, room.getId())
                 .orElseThrow(() -> new PlayerNotFoundException(playerId));
 
         if (!player.isAlive()) {

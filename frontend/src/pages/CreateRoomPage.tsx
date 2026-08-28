@@ -14,6 +14,35 @@ import { MeepleIcon, MoonIcon } from '../components/icons'
 
 type Step = 'mode' | 'participation' | 'assignment' | 'players' | 'roles'
 
+/**
+ * The "Altri ruoli" collapsible section's roles — capped-at-one-or-zero
+ * special roles beyond werewolf/priest, which get their own top-level
+ * cards. Kept as one config-driven list (rather than a `useState` +
+ * `RoleCard` pair per role) so adding a role here means adding one row,
+ * not touching four separate places.
+ */
+type OtherRole = 'GRAVEDIGGER' | 'IDIOT' | 'CORRUPTED_JUDGE' | 'SURVIVOR' | 'GUARDIAN' | 'KILLER' | 'MAYOR'
+
+const OTHER_ROLES: { role: OtherRole; label: string; max?: number }[] = [
+  { role: 'GRAVEDIGGER', label: 'Becchini', max: 1 },
+  { role: 'IDIOT', label: 'Idioti' },
+  { role: 'CORRUPTED_JUDGE', label: 'Giudice corrotto', max: 1 },
+  { role: 'SURVIVOR', label: 'Sopravvissuti' },
+  { role: 'GUARDIAN', label: 'Guardiani', max: 1 },
+  { role: 'KILLER', label: 'Killer', max: 1 },
+  { role: 'MAYOR', label: 'Sindaco', max: 1 },
+]
+
+const OTHER_ROLE_DEFAULTS: Record<OtherRole, number> = {
+  GRAVEDIGGER: 0,
+  IDIOT: 0,
+  CORRUPTED_JUDGE: 0,
+  SURVIVOR: 0,
+  GUARDIAN: 0,
+  KILLER: 0,
+  MAYOR: 0,
+}
+
 function CreateRoomPage() {
   const navigate = useNavigate()
   const [step, setStep] = useState<Step>('mode')
@@ -24,13 +53,7 @@ function CreateRoomPage() {
   const [playerCount, setPlayerCount] = useState(8)
   const [werewolfCount, setWerewolfCount] = useState(1)
   const [priestCount, setPriestCount] = useState(1)
-  const [gravediggerCount, setGravediggerCount] = useState(0)
-  const [idiotCount, setIdiotCount] = useState(0)
-  const [corruptedJudgeCount, setCorruptedJudgeCount] = useState(0)
-  const [survivorCount, setSurvivorCount] = useState(0)
-  const [guardianCount, setGuardianCount] = useState(0)
-  const [killerCount, setKillerCount] = useState(0)
-  const [mayorCount, setMayorCount] = useState(0)
+  const [otherRoleCounts, setOtherRoleCounts] = useState<Record<OtherRole, number>>(OTHER_ROLE_DEFAULTS)
   const [otherRolesOpen, setOtherRolesOpen] = useState(false)
   const [modeInfoOpen, setModeInfoOpen] = useState(false)
   const [infoRole, setInfoRole] = useState<AssignableRole | null>(null)
@@ -53,11 +76,14 @@ function CreateRoomPage() {
         { key: 'roles', label: 'Ruoli' },
       ]
 
-  const otherRolesCount =
-    gravediggerCount + idiotCount + corruptedJudgeCount + survivorCount + guardianCount + killerCount + mayorCount
+  const otherRolesCount = Object.values(otherRoleCounts).reduce((sum, count) => sum + count, 0)
   const specialRoleCount = werewolfCount + priestCount + otherRolesCount
   const villagerCount = Math.max(playerCount - specialRoleCount, 0)
   const rolesExceedPlayers = specialRoleCount > playerCount
+
+  const handleOtherRoleChange = (role: OtherRole, value: number) => {
+    setOtherRoleCounts((prev) => ({ ...prev, [role]: value }))
+  }
 
   const handleCreateRoom = async () => {
     setError(null)
@@ -68,13 +94,13 @@ function CreateRoomPage() {
         playerCount,
         werewolfCount,
         priestCount,
-        gravediggerCount,
-        idiotCount,
-        corruptedJudgeCount,
-        survivorCount,
-        guardianCount,
-        killerCount,
-        mayorCount,
+        gravediggerCount: otherRoleCounts.GRAVEDIGGER,
+        idiotCount: otherRoleCounts.IDIOT,
+        corruptedJudgeCount: otherRoleCounts.CORRUPTED_JUDGE,
+        survivorCount: otherRoleCounts.SURVIVOR,
+        guardianCount: otherRoleCounts.GUARDIAN,
+        killerCount: otherRoleCounts.KILLER,
+        mayorCount: otherRoleCounts.MAYOR,
         remoteJoin,
         manualRoles,
       })
@@ -267,74 +293,19 @@ function CreateRoomPage() {
                 </div>
               </summary>
               <div className="role-cards">
-                <RoleCard
-                  icon={ROLE_SETUP_INFO.GRAVEDIGGER.icon}
-                  label="Becchini"
-                  align={ROLE_ALIGNMENT.GRAVEDIGGER}
-                  count={gravediggerCount}
-                  min={0}
-                  max={1}
-                  onChange={setGravediggerCount}
-                  onInfoClick={() => setInfoRole('GRAVEDIGGER')}
-                />
-                <RoleCard
-                  icon={ROLE_SETUP_INFO.IDIOT.icon}
-                  label="Idioti"
-                  align={ROLE_ALIGNMENT.IDIOT}
-                  count={idiotCount}
-                  min={0}
-                  onChange={setIdiotCount}
-                  onInfoClick={() => setInfoRole('IDIOT')}
-                />
-                <RoleCard
-                  icon={ROLE_SETUP_INFO.CORRUPTED_JUDGE.icon}
-                  label="Giudice corrotto"
-                  align={ROLE_ALIGNMENT.CORRUPTED_JUDGE}
-                  count={corruptedJudgeCount}
-                  min={0}
-                  max={1}
-                  onChange={setCorruptedJudgeCount}
-                  onInfoClick={() => setInfoRole('CORRUPTED_JUDGE')}
-                />
-                <RoleCard
-                  icon={ROLE_SETUP_INFO.SURVIVOR.icon}
-                  label="Sopravvissuti"
-                  align={ROLE_ALIGNMENT.SURVIVOR}
-                  count={survivorCount}
-                  min={0}
-                  onChange={setSurvivorCount}
-                  onInfoClick={() => setInfoRole('SURVIVOR')}
-                />
-                <RoleCard
-                  icon={ROLE_SETUP_INFO.GUARDIAN.icon}
-                  label="Guardiani"
-                  align={ROLE_ALIGNMENT.GUARDIAN}
-                  count={guardianCount}
-                  min={0}
-                  max={1}
-                  onChange={setGuardianCount}
-                  onInfoClick={() => setInfoRole('GUARDIAN')}
-                />
-                <RoleCard
-                  icon={ROLE_SETUP_INFO.KILLER.icon}
-                  label="Killer"
-                  align={ROLE_ALIGNMENT.KILLER}
-                  count={killerCount}
-                  min={0}
-                  max={1}
-                  onChange={setKillerCount}
-                  onInfoClick={() => setInfoRole('KILLER')}
-                />
-                <RoleCard
-                  icon={ROLE_SETUP_INFO.MAYOR.icon}
-                  label="Sindaco"
-                  align={ROLE_ALIGNMENT.MAYOR}
-                  count={mayorCount}
-                  min={0}
-                  max={1}
-                  onChange={setMayorCount}
-                  onInfoClick={() => setInfoRole('MAYOR')}
-                />
+                {OTHER_ROLES.map(({ role, label, max }) => (
+                  <RoleCard
+                    key={role}
+                    icon={ROLE_SETUP_INFO[role].icon}
+                    label={label}
+                    align={ROLE_ALIGNMENT[role]}
+                    count={otherRoleCounts[role]}
+                    min={0}
+                    max={max}
+                    onChange={(value) => handleOtherRoleChange(role, value)}
+                    onInfoClick={() => setInfoRole(role)}
+                  />
+                ))}
               </div>
             </details>
 

@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useCallback, useEffect, useState, type FormEvent } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   ApiError,
@@ -23,22 +23,44 @@ function RoomRosterPage() {
   const { masterToken, handleForbidden } = useMasterAccess(code)
 
   const [roster, setRoster] = useState<MasterRoomState | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [nickname, setNickname] = useState('')
   const [selectedRole, setSelectedRole] = useState<Role | ''>('')
   const [adding, setAdding] = useState(false)
   const [starting, setStarting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     if (!code || !masterToken) return
-    getRoomRoster(code, masterToken).then(setRoster).catch(handleForbidden)
+    setLoadError(null)
+    getRoomRoster(code, masterToken)
+      .then(setRoster)
+      .catch((err) => {
+        handleForbidden(err)
+        if (!(err instanceof ApiError && err.status === 403)) {
+          setLoadError(err instanceof ApiError ? err.message : 'Impossibile caricare la stanza.')
+        }
+      })
   }, [code, masterToken, handleForbidden])
+
+  useEffect(() => {
+    refresh()
+  }, [refresh])
 
   if (!roster) {
     return (
       <BoardPanel>
         <h1>Giocatori</h1>
-        <p>Caricamento…</p>
+        {loadError ? (
+          <>
+            <p className="error">{loadError}</p>
+            <button type="button" className="button" onClick={refresh}>
+              Riprova
+            </button>
+          </>
+        ) : (
+          <p>Caricamento…</p>
+        )}
       </BoardPanel>
     )
   }
@@ -90,8 +112,8 @@ function RoomRosterPage() {
     try {
       await kickPlayer(code, playerId, masterToken)
       setRoster(await getRoomRoster(code, masterToken))
-    } catch {
-      showAlert('Impossibile rimuovere il giocatore. Riprova.')
+    } catch (err) {
+      showAlert(err instanceof ApiError ? err.message : 'Impossibile rimuovere il giocatore. Riprova.')
     }
   }
 
@@ -116,8 +138,8 @@ function RoomRosterPage() {
     try {
       await startGame(code, masterToken)
       navigate(`/room/${code}/game`)
-    } catch {
-      showAlert('Impossibile avviare la partita. Riprova.')
+    } catch (err) {
+      showAlert(err instanceof ApiError ? err.message : 'Impossibile avviare la partita. Riprova.')
     } finally {
       setStarting(false)
     }

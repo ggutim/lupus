@@ -122,6 +122,7 @@ class NightEngineTest {
                 .thenAnswer(invocation -> players.stream().filter(p -> !p.isAlive()).toList());
         for (Player player : players) {
             when(playerRepository.findById(player.getId())).thenReturn(Optional.of(player));
+            when(playerRepository.findByIdAndRoomId(player.getId(), room.getId())).thenReturn(Optional.of(player));
         }
     }
 

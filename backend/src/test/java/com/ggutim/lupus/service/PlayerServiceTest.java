@@ -318,7 +318,7 @@ class PlayerServiceTest {
         setId(player, 42L);
 
         when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
-        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
+        when(playerRepository.findByIdAndRoomId(42L, room.getId())).thenReturn(Optional.of(player));
         when(playerRepository.findByRoomIdOrderByJoinedAtAsc(any())).thenReturn(List.of());
 
         playerService().kickPlayer("ABCD", 42L, MASTER_TOKEN);
@@ -332,7 +332,6 @@ class PlayerServiceTest {
         Room room = room(6);
         setId(room, 1L);
         when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
-        when(playerRepository.findById(99L)).thenReturn(Optional.empty());
 
         assertThatThrownBy(() -> playerService().kickPlayer("ABCD", 99L, MASTER_TOKEN))
                 .isInstanceOf(PlayerNotFoundException.class);
@@ -348,7 +347,6 @@ class PlayerServiceTest {
         setId(player, 42L);
 
         when(roomService.findRoomForMaster("ABCD", MASTER_TOKEN)).thenReturn(room);
-        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
 
         assertThatThrownBy(() -> playerService().kickPlayer("ABCD", 42L, MASTER_TOKEN))
                 .isInstanceOf(PlayerNotFoundException.class);
@@ -467,7 +465,7 @@ class PlayerServiceTest {
         player.setRole(Role.WEREWOLF);
 
         when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
-        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
+        when(playerRepository.findByIdAndRoomId(42L, room.getId())).thenReturn(Optional.of(player));
 
         PlayerRoleResponse response = playerService().getRole("ABCD", 42L, "alice-token");
 
@@ -485,7 +483,7 @@ class PlayerServiceTest {
         player.kill();
 
         when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
-        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
+        when(playerRepository.findByIdAndRoomId(42L, room.getId())).thenReturn(Optional.of(player));
 
         PlayerRoleResponse response = playerService().getRole("ABCD", 42L, "alice-token");
 
@@ -502,7 +500,7 @@ class PlayerServiceTest {
         player.kill();
 
         when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
-        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
+        when(playerRepository.findByIdAndRoomId(42L, room.getId())).thenReturn(Optional.of(player));
 
         PlayerRoleResponse response = playerService().getRole("ABCD", 42L, "alice-token");
 
@@ -519,7 +517,7 @@ class PlayerServiceTest {
         player.kill();
 
         when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
-        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
+        when(playerRepository.findByIdAndRoomId(42L, room.getId())).thenReturn(Optional.of(player));
 
         PlayerRoleResponse response = playerService().getRole("ABCD", 42L, "alice-token");
 
@@ -534,7 +532,7 @@ class PlayerServiceTest {
         setId(player, 42L);
 
         when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
-        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
+        when(playerRepository.findByIdAndRoomId(42L, room.getId())).thenReturn(Optional.of(player));
 
         assertThatThrownBy(() -> playerService().getRole("ABCD", 42L, "wrong-token"))
                 .isInstanceOf(PlayerTokenMismatchException.class);
@@ -548,7 +546,7 @@ class PlayerServiceTest {
         setId(player, 42L);
 
         when(roomRepository.findByCode("ABCD")).thenReturn(Optional.of(room));
-        when(playerRepository.findById(42L)).thenReturn(Optional.of(player));
+        when(playerRepository.findByIdAndRoomId(42L, room.getId())).thenReturn(Optional.of(player));
 
         assertThatThrownBy(() -> playerService().getRole("ABCD", 42L, null))
                 .isInstanceOf(PlayerTokenMismatchException.class);

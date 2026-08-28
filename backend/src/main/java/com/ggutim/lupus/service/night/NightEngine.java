@@ -355,8 +355,7 @@ public class NightEngine {
      * most roles, dead for e.g. the gravedigger).
      */
     private Player requireEligibleTarget(Room room, Role role, Long targetId) {
-        Player player = playerRepository.findById(targetId)
-                .filter(p -> p.getRoom().getId().equals(room.getId()))
+        Player player = playerRepository.findByIdAndRoomId(targetId, room.getId())
                 .orElseThrow(() -> new PlayerNotFoundException(targetId));
 
         boolean requiresDead = requiresDeadTarget(role);

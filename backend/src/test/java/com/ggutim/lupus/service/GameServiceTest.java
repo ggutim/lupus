@@ -400,7 +400,7 @@ class GameServiceTest {
         Room room = startedRoom(GamePhase.VOTE_SELECT_TARGET);
         Player target = player(room, "V1", Role.VILLAGER, true);
         mockMasterRoom(room);
-        when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(playerRepository.findByIdAndRoomId(target.getId(), room.getId())).thenReturn(Optional.of(target));
 
         MasterGameStateResponse result = gameService().selectVoteVictim(CODE, MASTER_TOKEN, target.getId());
 
@@ -432,7 +432,6 @@ class GameServiceTest {
         Room room = startedRoom(GamePhase.DISCUSSION);
         Player target = player(room, "V1", Role.VILLAGER, true);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(target));
 
         assertThatThrownBy(() -> gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, target.getId(), Role.VILLAGER))
                 .isInstanceOf(InvalidGamePhaseException.class);
@@ -444,7 +443,7 @@ class GameServiceTest {
         Player killer = player(room, "KILLER", Role.KILLER, false);
         Player target = player(room, "V1", Role.VILLAGER, true);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
+        when(playerRepository.findFirstByRoomIdAndRole(room.getId(), Role.KILLER)).thenReturn(Optional.of(killer));
 
         assertThatThrownBy(() -> gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, target.getId(), Role.VILLAGER))
                 .isInstanceOf(InvalidGamePhaseException.class);
@@ -457,7 +456,7 @@ class GameServiceTest {
         killer.setKillerRevealUsed(true);
         Player target = player(room, "V1", Role.VILLAGER, true);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
+        when(playerRepository.findFirstByRoomIdAndRole(room.getId(), Role.KILLER)).thenReturn(Optional.of(killer));
 
         assertThatThrownBy(() -> gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, target.getId(), Role.VILLAGER))
                 .isInstanceOf(InvalidGamePhaseException.class);
@@ -468,8 +467,8 @@ class GameServiceTest {
         Room room = startedRoom(GamePhase.DISCUSSION);
         Player killer = player(room, "KILLER", Role.KILLER, true);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer));
-        when(playerRepository.findById(killer.getId())).thenReturn(Optional.of(killer));
+        when(playerRepository.findFirstByRoomIdAndRole(room.getId(), Role.KILLER)).thenReturn(Optional.of(killer));
+        when(playerRepository.findByIdAndRoomId(killer.getId(), room.getId())).thenReturn(Optional.of(killer));
 
         assertThatThrownBy(() -> gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, killer.getId(), Role.KILLER))
                 .isInstanceOf(InvalidGamePhaseException.class);
@@ -481,8 +480,8 @@ class GameServiceTest {
         Player killer = player(room, "KILLER", Role.KILLER, true);
         Player target = player(room, "PRIEST", Role.PRIEST, true);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
-        when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(playerRepository.findFirstByRoomIdAndRole(room.getId(), Role.KILLER)).thenReturn(Optional.of(killer));
+        when(playerRepository.findByIdAndRoomId(target.getId(), room.getId())).thenReturn(Optional.of(target));
         when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
 
         KillerGuessResponse response =
@@ -501,8 +500,8 @@ class GameServiceTest {
         Player target = player(room, "SURV", Role.SURVIVOR, true);
         target.setExtraLives(1);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
-        when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(playerRepository.findFirstByRoomIdAndRole(room.getId(), Role.KILLER)).thenReturn(Optional.of(killer));
+        when(playerRepository.findByIdAndRoomId(target.getId(), room.getId())).thenReturn(Optional.of(target));
         when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
 
         gameService().revealKillerAndGuess(CODE, MASTER_TOKEN, target.getId(), Role.SURVIVOR);
@@ -517,8 +516,8 @@ class GameServiceTest {
         Player killer = player(room, "KILLER", Role.KILLER, true);
         Player target = player(room, "PRIEST", Role.PRIEST, true);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
-        when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(playerRepository.findFirstByRoomIdAndRole(room.getId(), Role.KILLER)).thenReturn(Optional.of(killer));
+        when(playerRepository.findByIdAndRoomId(target.getId(), room.getId())).thenReturn(Optional.of(target));
         when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
 
         KillerGuessResponse response =
@@ -537,7 +536,8 @@ class GameServiceTest {
         Player target = player(room, "MAYOR", Role.MAYOR, true);
         target.setMayor(true);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
+        when(playerRepository.findFirstByRoomIdAndRole(room.getId(), Role.KILLER)).thenReturn(Optional.of(killer));
+        when(playerRepository.findByIdAndRoomId(target.getId(), room.getId())).thenReturn(Optional.of(target));
         when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
         when(playerRepository.findByRoomIdAndAliveTrueOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer));
         when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.empty());
@@ -555,8 +555,8 @@ class GameServiceTest {
         Player target = player(room, "MAYOR", Role.MAYOR, true);
         target.setMayor(true);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
-        when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(playerRepository.findFirstByRoomIdAndRole(room.getId(), Role.KILLER)).thenReturn(Optional.of(killer));
+        when(playerRepository.findByIdAndRoomId(target.getId(), room.getId())).thenReturn(Optional.of(target));
         when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.of(Alignment.GOOD));
 
         KillerGuessResponse response =
@@ -572,8 +572,8 @@ class GameServiceTest {
         Player killer = player(room, "KILLER", Role.KILLER, true);
         Player target = player(room, "PRIEST", Role.PRIEST, true);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer, target));
-        when(playerRepository.findById(target.getId())).thenReturn(Optional.of(target));
+        when(playerRepository.findFirstByRoomIdAndRole(room.getId(), Role.KILLER)).thenReturn(Optional.of(killer));
+        when(playerRepository.findByIdAndRoomId(target.getId(), room.getId())).thenReturn(Optional.of(target));
         when(winConditionEvaluator.evaluate(room)).thenReturn(Optional.of(Alignment.EVIL));
 
         KillerGuessResponse response =
@@ -599,7 +599,6 @@ class GameServiceTest {
         Room room = startedRoom(GamePhase.DISCUSSION);
         Player villager = player(room, "V1", Role.VILLAGER, true);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(villager));
 
         assertThatThrownBy(() -> gameService().revealMayor(CODE, MASTER_TOKEN))
                 .isInstanceOf(InvalidGamePhaseException.class);
@@ -611,7 +610,7 @@ class GameServiceTest {
         Player mayor = player(room, "MAYOR", Role.MAYOR, false);
         mayor.setMayor(true);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(mayor));
+        when(playerRepository.findFirstByRoomIdAndMayorTrue(room.getId())).thenReturn(Optional.of(mayor));
 
         assertThatThrownBy(() -> gameService().revealMayor(CODE, MASTER_TOKEN))
                 .isInstanceOf(InvalidGamePhaseException.class);
@@ -624,7 +623,7 @@ class GameServiceTest {
         mayor.setMayor(true);
         mayor.setMayorRevealed(true);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(mayor));
+        when(playerRepository.findFirstByRoomIdAndMayorTrue(room.getId())).thenReturn(Optional.of(mayor));
 
         assertThatThrownBy(() -> gameService().revealMayor(CODE, MASTER_TOKEN))
                 .isInstanceOf(InvalidGamePhaseException.class);
@@ -636,7 +635,7 @@ class GameServiceTest {
         Player mayor = player(room, "MAYOR", Role.MAYOR, true);
         mayor.setMayor(true);
         mockMasterRoom(room);
-        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(mayor));
+        when(playerRepository.findFirstByRoomIdAndMayorTrue(room.getId())).thenReturn(Optional.of(mayor));
 
         gameService().revealMayor(CODE, MASTER_TOKEN);
 
@@ -661,10 +660,22 @@ class GameServiceTest {
         Player successor = player(room, "V1", Role.VILLAGER, false);
         room.setPendingMayorSuccessionPlayerId(deadMayor.getId());
         mockMasterRoom(room);
-        when(playerRepository.findById(successor.getId())).thenReturn(Optional.of(successor));
+        when(playerRepository.findByIdAndRoomId(successor.getId(), room.getId())).thenReturn(Optional.of(successor));
 
         assertThatThrownBy(() -> gameService().assignMayorSuccessor(CODE, MASTER_TOKEN, successor.getId()))
                 .isInstanceOf(InvalidGamePhaseException.class);
+    }
+
+    @Test
+    void assignMayorSuccessor_rejectsNamingTheDeadMayorAsTheirOwnSuccessor() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player deadMayor = player(room, "MAYOR", Role.MAYOR, false);
+        room.setPendingMayorSuccessionPlayerId(deadMayor.getId());
+        mockMasterRoom(room);
+
+        assertThatThrownBy(() -> gameService().assignMayorSuccessor(CODE, MASTER_TOKEN, deadMayor.getId()))
+                .isInstanceOf(InvalidGamePhaseException.class)
+                .hasMessageContaining("cannot name themselves");
     }
 
     @Test
@@ -677,7 +688,7 @@ class GameServiceTest {
         room.setPendingMayorSuccessionPlayerId(deadMayor.getId());
         mockMasterRoom(room);
         when(playerRepository.findById(deadMayor.getId())).thenReturn(Optional.of(deadMayor));
-        when(playerRepository.findById(successor.getId())).thenReturn(Optional.of(successor));
+        when(playerRepository.findByIdAndRoomId(successor.getId(), room.getId())).thenReturn(Optional.of(successor));
 
         MasterGameStateResponse result = gameService().assignMayorSuccessor(CODE, MASTER_TOKEN, successor.getId());
 
@@ -699,7 +710,7 @@ class GameServiceTest {
         room.setPendingMayorSuccessionPlayerId(deadMayor.getId());
         mockMasterRoom(room);
         when(playerRepository.findById(deadMayor.getId())).thenReturn(Optional.of(deadMayor));
-        when(playerRepository.findById(successor.getId())).thenReturn(Optional.of(successor));
+        when(playerRepository.findByIdAndRoomId(successor.getId(), room.getId())).thenReturn(Optional.of(successor));
 
         gameService().assignMayorSuccessor(CODE, MASTER_TOKEN, successor.getId());
 

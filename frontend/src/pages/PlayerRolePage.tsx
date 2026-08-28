@@ -88,6 +88,7 @@ function PlayerRolePage() {
   const nickname = (location.state as { nickname?: string } | null)?.nickname
   const { showAlert } = useDialog()
   const [status, setStatus] = useState<PlayerRoleState | null>(null)
+  const [loadError, setLoadError] = useState<string | null>(null)
   const [village, setVillage] = useState<VillagePlayer[]>([])
   const [villageOpen, setVillageOpen] = useState(false)
   const [revealed, setRevealed] = useState(false)
@@ -104,13 +105,21 @@ function PlayerRolePage() {
     }
 
     getPlayerRole(code, stored.playerId, stored.token)
-      .then(setStatus)
+      .then((data) => {
+        setStatus(data)
+        setLoadError(null)
+      })
       .catch((err) => {
         if (err instanceof ApiError) {
           showAlert({
             title: 'Impossibile recuperare il ruolo',
             message: err.message,
           }).then(() => navigate('/'))
+        } else {
+          // A non-API failure (network hiccup, timeout) has no redirect target — unlike
+          // the ApiError branch above, leave the player here with a way to retry instead
+          // of a permanent "Caricamento…".
+          setLoadError('Impossibile recuperare il tuo ruolo. Controlla la connessione e riprova.')
         }
       })
 
@@ -129,7 +138,16 @@ function PlayerRolePage() {
     return (
       <BoardPanel>
         <h1>Il tuo ruolo</h1>
-        <p>Caricamento…</p>
+        {loadError ? (
+          <>
+            <p className="error">{loadError}</p>
+            <button type="button" className="button" onClick={refresh}>
+              Riprova
+            </button>
+          </>
+        ) : (
+          <p>Caricamento…</p>
+        )}
       </BoardPanel>
     )
   }
