@@ -315,7 +315,7 @@ function CreateRoomPage() {
                 />
                 <RoleCard
                   icon={ROLE_SETUP_INFO.KILLER.icon}
-                  label="Assassini"
+                  label="Killer"
                   align={ROLE_ALIGNMENT.KILLER}
                   count={killerCount}
                   min={0}
