@@ -164,6 +164,10 @@ export interface VillagePlayer {
   id: number
   nickname: string
   alive: boolean
+  /** Non-null only once made public by an in-game reveal (the killer's guess, or the mayor's reveal). */
+  revealedRole: Role | null
+  /** True only when this player currently holds the mayor status and that fact is itself public. */
+  mayor: boolean
 }
 
 export async function getVillageOverview(code: string): Promise<VillagePlayer[]> {

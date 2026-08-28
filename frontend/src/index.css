@@ -818,6 +818,7 @@ select {
 
 .dialog-actions .button {
   flex: 1;
+  min-width: 0;
 }
 
 /* ---------- Info dialog (role/mode rules popup) ---------- */
@@ -955,6 +956,18 @@ select {
   font-size: 0.85rem;
   font-style: italic;
   color: var(--ink-soft);
+}
+
+.village-overview-mayor-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid var(--gold);
+  color: var(--ink);
+  background: rgba(201, 162, 39, 0.2);
 }
 
 .village-overview-status {
@@ -1160,7 +1173,7 @@ select {
   box-sizing: border-box;
 }
 
-.killer-reveal-button {
+.special-powers-button {
   margin-top: 4px;
   padding: 4px 2px;
   border: none;
@@ -1175,27 +1188,32 @@ select {
   transition: color 0.15s ease, text-decoration-color 0.15s ease;
 }
 
-.killer-reveal-button:hover {
+.special-powers-button:hover {
   color: var(--ink);
   text-decoration-color: currentColor;
 }
 
-.mayor-reveal-button {
-  margin-top: 4px;
-  padding: 4px 2px;
-  border: none;
-  background: none;
-  font-family: var(--font-body);
-  font-size: 0.78rem;
-  font-style: italic;
-  color: var(--ink-soft);
-  text-decoration: underline;
-  text-decoration-color: transparent;
+.special-powers-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  width: 100%;
+}
+
+.special-powers-action {
+  width: 100%;
+  box-sizing: border-box;
+  padding: 12px 16px;
+  border: 2px solid var(--wood-light);
+  border-radius: 4px;
+  background: var(--parchment-light);
+  color: var(--ink);
+  font: 600 0.92rem var(--font-body);
   cursor: pointer;
-  transition: color 0.15s ease, text-decoration-color 0.15s ease;
+  transition: background 0.15s ease, border-color 0.15s ease;
 }
 
-.mayor-reveal-button:hover {
-  color: var(--ink);
-  text-decoration-color: currentColor;
+.special-powers-action:hover {
+  background: var(--parchment);
+  border-color: var(--gold);
 }

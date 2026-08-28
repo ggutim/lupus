@@ -9,6 +9,8 @@ export interface VillageOverviewPlayer {
   role?: Role
   /** Afterlife mode only: what this player was before dying and becoming a ghost/angel. */
   originalRole?: Role | null
+  /** Whether this player currently holds the (publicly known) mayor status — shown as a badge alongside role. */
+  mayor?: boolean
 }
 
 interface VillageOverviewDialogProps {
@@ -54,6 +56,9 @@ function VillageOverviewDialog({ open, onClose, players }: VillageOverviewDialog
                       ? `${ROLE_LABELS[player.originalRole]} → ${ROLE_LABELS[player.role]}`
                       : ROLE_LABELS[player.role]}
                   </span>
+                )}
+                {player.mayor && player.role !== 'MAYOR' && (
+                  <span className="village-overview-mayor-badge">Sindaco</span>
                 )}
                 <span className="village-overview-status">{player.alive ? 'Vivo' : 'Morto'}</span>
               </span>

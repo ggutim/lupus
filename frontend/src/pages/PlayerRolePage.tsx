@@ -140,6 +140,14 @@ function PlayerRolePage() {
     </button>
   )
 
+  const villageOverviewPlayers = village.map((player) => ({
+    id: player.id,
+    nickname: player.nickname,
+    alive: player.alive,
+    role: player.revealedRole ?? undefined,
+    mayor: player.mayor,
+  }))
+
   if (!status.alive) {
     return (
       <BoardPanel>
@@ -155,7 +163,7 @@ function PlayerRolePage() {
         </div>
 
         {villageButton}
-        <VillageOverviewDialog open={villageOpen} onClose={() => setVillageOpen(false)} players={village} />
+        <VillageOverviewDialog open={villageOpen} onClose={() => setVillageOpen(false)} players={villageOverviewPlayers} />
       </BoardPanel>
     )
   }
@@ -202,7 +210,7 @@ function PlayerRolePage() {
       )}
 
       {villageButton}
-      <VillageOverviewDialog open={villageOpen} onClose={() => setVillageOpen(false)} players={village} />
+      <VillageOverviewDialog open={villageOpen} onClose={() => setVillageOpen(false)} players={villageOverviewPlayers} />
     </BoardPanel>
   )
 }

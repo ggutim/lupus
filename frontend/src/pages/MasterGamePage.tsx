@@ -18,6 +18,7 @@ import { subscribeToGame } from '../api/roomSocket'
 import BoardPanel from '../components/BoardPanel'
 import KillerGuessDialog from '../components/KillerGuessDialog'
 import MayorSuccessionDialog from '../components/MayorSuccessionDialog'
+import SpecialPowersDialog, { type SpecialPowerAction } from '../components/SpecialPowersDialog'
 import VillageOverviewDialog from '../components/VillageOverviewDialog'
 import { useDialog } from '../components/useDialog'
 import { useMasterAccess } from '../components/useMasterAccess'
@@ -377,6 +378,7 @@ function MasterGamePage() {
   const [busy, setBusy] = useState(false)
   const [villageOpen, setVillageOpen] = useState(false)
   const [killerGuessOpen, setKillerGuessOpen] = useState(false)
+  const [specialPowersOpen, setSpecialPowersOpen] = useState(false)
 
   const refresh = useCallback(() => {
     if (!code || !masterToken) return
@@ -513,6 +515,10 @@ function MasterGamePage() {
 
   const killer = revealableKiller(state)
   const mayor = revealableMayor(state)
+  const specialPowerActions: SpecialPowerAction[] = [
+    killer ? { key: 'killer', label: 'Il killer si rivela…', onSelect: () => setKillerGuessOpen(true) } : null,
+    mayor ? { key: 'mayor', label: 'Il sindaco si rivela…', onSelect: handleMayorReveal } : null,
+  ].filter((action): action is SpecialPowerAction => action !== null)
 
   return (
     <BoardPanel>
@@ -530,6 +536,7 @@ function MasterGamePage() {
           alive: player.alive,
           role: player.role,
           originalRole: player.originalRole,
+          mayor: player.mayor,
         }))}
       />
 
@@ -573,11 +580,16 @@ function MasterGamePage() {
         )}
       </div>
 
-      {killer && (
-        <button type="button" className="killer-reveal-button" onClick={() => setKillerGuessOpen(true)}>
-          Il killer si rivela…
+      {specialPowerActions.length > 0 && (
+        <button type="button" className="special-powers-button" onClick={() => setSpecialPowersOpen(true)}>
+          Poteri speciali…
         </button>
       )}
+      <SpecialPowersDialog
+        open={specialPowersOpen}
+        onClose={() => setSpecialPowersOpen(false)}
+        actions={specialPowerActions}
+      />
       <KillerGuessDialog
         open={killerGuessOpen}
         onClose={() => setKillerGuessOpen(false)}
@@ -586,11 +598,6 @@ function MasterGamePage() {
         onConfirm={handleKillerGuess}
       />
 
-      {mayor && (
-        <button type="button" className="mayor-reveal-button" onClick={handleMayorReveal} disabled={busy}>
-          Il sindaco si rivela…
-        </button>
-      )}
       <MayorSuccessionDialog
         open={state.pendingMayorSuccessionPlayerId !== null}
         deadMayorName={playerName(state.players, state.pendingMayorSuccessionPlayerId)}

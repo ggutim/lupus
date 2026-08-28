@@ -279,7 +279,8 @@ class RoomControllerTest {
     @Test
     void getVillageOverview_returnsRosterWithoutRoles() {
         VillageOverviewResponse overview = new VillageOverviewResponse(
-                List.of(new PlayerResponse(1L, "ALICE", true), new PlayerResponse(2L, "BOB", false)));
+                List.of(new PlayerResponse(1L, "ALICE", true, null, false),
+                        new PlayerResponse(2L, "BOB", false, null, false)));
         when(gameService.getVillageOverview("ABCD")).thenReturn(overview);
 
         mvc.get().uri("/api/rooms/abcd/village")

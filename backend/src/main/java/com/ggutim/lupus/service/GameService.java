@@ -242,8 +242,10 @@ public class GameService {
      * successorPlayerId}, who becomes the new mayor while keeping
      * whatever role they already had — mayor status lives orthogonally
      * to {@link Role} (see {@link Player#isMayor()}) precisely so it can
-     * land on top of any other role. The new holder starts unrevealed,
-     * same as the very first mayor at game start.
+     * land on top of any other role. Unlike the very first mayor (who
+     * starts secret and reveals voluntarily), the successor is public
+     * from the moment they're named — the hand-off happens in front of
+     * the whole table, so there's nothing left to hide.
      */
     @Transactional
     public MasterGameStateResponse assignMayorSuccessor(String code, String masterToken, Long successorPlayerId) {
@@ -261,7 +263,7 @@ public class GameService {
 
         deadMayor.setMayor(false);
         successor.setMayor(true);
-        successor.setMayorRevealed(false);
+        successor.setMayorRevealed(true);
         playerRepository.save(deadMayor);
         playerRepository.save(successor);
 

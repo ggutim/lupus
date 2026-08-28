@@ -295,6 +295,69 @@ class GameServiceTest {
         assertThat(overview.players()).extracting(PlayerResponse::alive).containsExactly(true, false);
     }
 
+    @Test
+    void getVillageOverview_hidesEveryRoleByDefault() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player wolf = player(room, "WOLF", Role.WEREWOLF, true);
+        Player killer = player(room, "KILLER", Role.KILLER, true);
+        Player mayor = player(room, "MAYOR", Role.MAYOR, true);
+        mayor.setMayor(true);
+        when(roomRepository.findByCode(CODE)).thenReturn(Optional.of(room));
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(wolf, killer, mayor));
+
+        VillageOverviewResponse overview = gameService().getVillageOverview(CODE);
+
+        assertThat(overview.players()).extracting(PlayerResponse::revealedRole).containsOnlyNulls();
+        assertThat(overview.players()).extracting(PlayerResponse::mayor).containsOnly(false);
+    }
+
+    @Test
+    void getVillageOverview_showsKillerRoleOnceTheyHaveRevealed() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player killer = player(room, "KILLER", Role.KILLER, true);
+        killer.setKillerRevealUsed(true);
+        when(roomRepository.findByCode(CODE)).thenReturn(Optional.of(room));
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(killer));
+
+        VillageOverviewResponse overview = gameService().getVillageOverview(CODE);
+
+        assertThat(overview.players().get(0).revealedRole()).isEqualTo(Role.KILLER);
+    }
+
+    @Test
+    void getVillageOverview_showsMayorTagOnlyOnceRevealed() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player mayor = player(room, "MAYOR", Role.MAYOR, true);
+        mayor.setMayor(true);
+        mayor.setMayorRevealed(true);
+        when(roomRepository.findByCode(CODE)).thenReturn(Optional.of(room));
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(mayor));
+
+        VillageOverviewResponse overview = gameService().getVillageOverview(CODE);
+
+        assertThat(overview.players().get(0).mayor()).isTrue();
+        assertThat(overview.players().get(0).revealedRole()).isEqualTo(Role.MAYOR);
+    }
+
+    @Test
+    void getVillageOverview_showsMayorTagOnCurrentHolderNotTheDeadOriginal() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player deadMayor = player(room, "MAYOR", Role.MAYOR, false);
+        deadMayor.setMayor(false);
+        deadMayor.setMayorRevealed(true);
+        Player successor = player(room, "WOLF", Role.WEREWOLF, true);
+        successor.setMayor(true);
+        successor.setMayorRevealed(true);
+        when(roomRepository.findByCode(CODE)).thenReturn(Optional.of(room));
+        when(playerRepository.findByRoomIdOrderByJoinedAtAsc(room.getId())).thenReturn(List.of(deadMayor, successor));
+
+        VillageOverviewResponse overview = gameService().getVillageOverview(CODE);
+
+        assertThat(overview.players().get(0).mayor()).isFalse();
+        assertThat(overview.players().get(1).mayor()).isTrue();
+        assertThat(overview.players().get(1).revealedRole()).isNull();
+    }
+
     // ---------- selectNightTarget ----------
 
     @Test
@@ -620,10 +683,27 @@ class GameServiceTest {
 
         assertThat(deadMayor.isMayor()).isFalse();
         assertThat(successor.isMayor()).isTrue();
-        assertThat(successor.isMayorRevealed()).isFalse();
+        assertThat(successor.isMayorRevealed()).isTrue();
         assertThat(successor.getRole()).isEqualTo(Role.WEREWOLF);
         assertThat(room.getPendingMayorSuccessionPlayerId()).isNull();
         assertThat(result.pendingMayorSuccessionPlayerId()).isNull();
+    }
+
+    @Test
+    void assignMayorSuccessor_isImmediatelyPublicEvenIfTheOriginalMayorWasNeverRevealed() {
+        Room room = startedRoom(GamePhase.DISCUSSION);
+        Player deadMayor = player(room, "MAYOR", Role.MAYOR, false);
+        deadMayor.setMayor(true);
+        deadMayor.setMayorRevealed(false);
+        Player successor = player(room, "V1", Role.VILLAGER, true);
+        room.setPendingMayorSuccessionPlayerId(deadMayor.getId());
+        mockMasterRoom(room);
+        when(playerRepository.findById(deadMayor.getId())).thenReturn(Optional.of(deadMayor));
+        when(playerRepository.findById(successor.getId())).thenReturn(Optional.of(successor));
+
+        gameService().assignMayorSuccessor(CODE, MASTER_TOKEN, successor.getId());
+
+        assertThat(successor.isMayorRevealed()).isTrue();
     }
 
     // ---------- advancePhase: skeleton phase sequencing ----------
